@@ -1,4 +1,4 @@
-# HackHPC 2025 Project
+# HackUPC 2025 Project
 
 🚀 **Welcome to our HackHPC 2025 Project!**
 
