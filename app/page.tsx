@@ -1,116 +1,354 @@
-import Image from 'next/image'
-import Link from 'next/link'
+'use client';
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <Link href="/api/python">
-            <code className="font-mono font-bold">api/index.py</code>
-          </Link>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+import React, { useState, useEffect } from 'react';
+import { MapPin, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+// Need to fix Leaflet marker icon issue in Next.js
+// In a real project, you'd need to import these CSS files
+// import 'leaflet/dist/leaflet.css';
+
+// Simulated airport API data
+const AIRPORTS = [
+  { code: "JFK", name: "New York (JFK)", lat: 40.6413, lng: -73.7781 },
+  { code: "LAX", name: "Los Angeles (LAX)", lat: 33.9416, lng: -118.4085 },
+  { code: "ORD", name: "Chicago (ORD)", lat: 41.9742, lng: -87.9073 },
+  { code: "LHR", name: "London (LHR)", lat: 51.4694, lng: -0.4502 },
+  { code: "CDG", name: "Paris (CDG)", lat: 49.0097, lng: 2.5479 },
+  { code: "SFO", name: "San Francisco (SFO)", lat: 37.6213, lng: -122.3790 },
+  { code: "BCN", name: "Barcelona (BCN)", lat: 41.2974, lng: 2.0833 },
+  { code: "NRT", name: "Tokyo (NRT)", lat: 35.7720, lng: 140.3929 },
+  { code: "SYD", name: "Sydney (SYD)", lat: -33.9399, lng: 151.1753 },
+  { code: "DXB", name: "Dubai (DXB)", lat: 25.2532, lng: 55.3657 }
+];
+
+// This component must be a client component
+const GroupMeetupOptimizer = () => {
+  // State for friends list with default 2 friends
+  const [friends, setFriends] = useState([
+    { id: 1, name: "", airportCode: "" },
+    { id: 2, name: "", airportCode: "" }
+  ]);
+  
+  // State for map center and markers
+  const [mapCenter, setMapCenter] = useState({ lat: 20, lng: 0 });
+  const [zoomLevel, setZoomLevel] = useState(2);
+  const [optimizedPoint, setOptimizedPoint] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState({});
+  const [mapKey, setMapKey] = useState(0); // Used to force map re-render
+
+  // Custom marker icons
+  const [friendIcon, setFriendIcon] = useState(null);
+  const [meetingIcon, setMeetingIcon] = useState(null);
+
+  // Initialize Leaflet icons
+  useEffect(() => {
+    // In a real implementation, you'd use proper icon URLs
+    setFriendIcon(
+      new L.Icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      })
+    );
+
+    setMeetingIcon(
+      new L.Icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      })
+    );
+  }, []);
+
+  // Update map center when friends change
+  useEffect(() => {
+    updateMapCenter();
+  }, [friends]);
+
+  // Function to add a new friend
+  const addFriend = () => {
+    const newId = Math.max(...friends.map(f => f.id), 0) + 1;
+    setFriends([...friends, { id: newId, name: "", airportCode: "" }]);
+  };
+
+  // Function to remove a friend
+  const removeFriend = (id) => {
+    if (friends.length <= 2) return; // Maintain minimum 2 friends
+    setFriends(friends.filter(friend => friend.id !== id));
+  };
+
+  // Function to update friend information
+  const updateFriend = (id, field, value) => {
+    setFriends(friends.map(friend => 
+      friend.id === id ? { ...friend, [field]: value } : friend
+    ));
+    
+    // Force map re-render when changing airport
+    if (field === 'airportCode') {
+      setMapKey(prev => prev + 1);
+    }
+  };
+
+  // Calculate map center based on friend locations
+  const updateMapCenter = () => {
+    const validFriends = friends.filter(friend => friend.airportCode);
+    
+    if (validFriends.length === 0) {
+      setMapCenter({ lat: 20, lng: 0 });
+      setZoomLevel(2);
+      return;
+    }
+    
+    const locations = validFriends.map(friend => {
+      const airport = AIRPORTS.find(a => a.code === friend.airportCode);
+      return airport ? { lat: airport.lat, lng: airport.lng } : null;
+    }).filter(loc => loc !== null);
+    
+    if (locations.length === 0) return;
+    
+    const sumLat = locations.reduce((sum, loc) => sum + loc.lat, 0);
+    const sumLng = locations.reduce((sum, loc) => sum + loc.lng, 0);
+    
+    setMapCenter({
+      lat: sumLat / locations.length,
+      lng: sumLng / locations.length
+    });
+    
+    // Adjust zoom level based on number of locations
+    if (locations.length === 1) {
+      setZoomLevel(5);
+    } else {
+      setZoomLevel(2);
+    }
+    
+    // Force map to re-render with new center
+    setMapKey(prev => prev + 1);
+  };
+
+  // Calculate optimal meeting point
+  const calculateOptimalMeetingPoint = () => {
+    const validFriends = friends.filter(f => f.name && f.airportCode);
+    
+    if (validFriends.length < 2) {
+      alert("Please add at least 2 friends with names and airports.");
+      return;
+    }
+    
+    // For now, just use the center as the "optimal" point
+    // In a real app, this would be a more sophisticated algorithm
+    const locations = validFriends.map(friend => {
+      const airport = AIRPORTS.find(a => a.code === friend.airportCode);
+      return airport ? { lat: airport.lat, lng: airport.lng } : null;
+    }).filter(loc => loc !== null);
+    
+    if (locations.length < 2) {
+      alert("Please select valid airports for at least 2 friends.");
+      return;
+    }
+    
+    // Find closest airport to the center (simple algorithm)
+    const sumLat = locations.reduce((sum, loc) => sum + loc.lat, 0);
+    const sumLng = locations.reduce((sum, loc) => sum + loc.lng, 0);
+    
+    const center = {
+      lat: sumLat / locations.length,
+      lng: sumLng / locations.length
+    };
+    
+    // Find nearest airport to the center
+    let nearestAirport = null;
+    let minDistance = Infinity;
+    
+    AIRPORTS.forEach(airport => {
+      const distance = Math.sqrt(
+        Math.pow(airport.lat - center.lat, 2) + 
+        Math.pow(airport.lng - center.lng, 2)
+      );
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestAirport = airport;
+      }
+    });
+    
+    setOptimizedPoint(nearestAirport);
+    setMapCenter(center);
+    setZoomLevel(2);
+    setMapKey(prev => prev + 1); // Force map re-render
+  };
+
+  // Toggle dropdown for a specific friend
+  const toggleDropdown = (id) => {
+    setIsDropdownOpen({
+      ...isDropdownOpen,
+      [id]: !isDropdownOpen[id]
+    });
+  };
+
+  // Get friend markers for the map
+  const getFriendMarkers = () => {
+    if (!friendIcon) return null;
+    
+    return friends
+      .filter(f => f.airportCode)
+      .map(friend => {
+        const airport = AIRPORTS.find(a => a.code === friend.airportCode);
+        if (!airport) return null;
+        
+        return (
+          <Marker
+            key={`friend-${friend.id}`}
+            position={[airport.lat, airport.lng]}
+            icon={friendIcon}
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+            <Popup>
+              {friend.name || "Friend"} <br />
+              {airport.name}
+            </Popup>
+          </Marker>
+        );
+      });
+  };
+
+  // Get the optimized meeting point marker
+  const getOptimizedMarker = () => {
+    if (!optimizedPoint || !meetingIcon) return null;
+    
+    return (
+      <Marker
+        key="optimized-meeting-point"
+        position={[optimizedPoint.lat, optimizedPoint.lng]}
+        icon={meetingIcon}
+      >
+        <Popup>
+          <strong>Optimal Meeting Point</strong> <br />
+          {optimizedPoint.name}
+        </Popup>
+      </Marker>
+    );
+  };
+
+  return (
+    <div className="relative w-full h-screen overflow-hidden">
+      {/* Leaflet Map */}
+      <div className="absolute inset-0 z-0">
+        {/* Only render the map once the icons are loaded */}
+        {friendIcon && (
+          <MapContainer
+            key={mapKey}
+            center={[mapCenter.lat, mapCenter.lng]}
+            zoom={zoomLevel}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-          </a>
+            {getFriendMarkers()}
+            {getOptimizedMarker()}
+          </MapContainer>
+        )}
+      </div>
+      
+      {/* Friends Management Panel */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl w-80 p-4 max-h-[90vh] overflow-y-auto z-10">
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">Group Meetup Optimizer</h1>
+        
+        <div className="space-y-4">
+          {friends.map(friend => (
+            <div key={friend.id} className="p-3 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-medium">Friend {friend.id}</h3>
+                {friends.length > 2 && (
+                  <button 
+                    onClick={() => removeFriend(friend.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              
+              <div className="mb-2">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={friend.name}
+                  onChange={e => updateFriend(friend.id, 'name', e.target.value)}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div className="relative">
+                <div 
+                  className="flex justify-between items-center w-full p-2 border rounded cursor-pointer bg-white"
+                  onClick={() => toggleDropdown(friend.id)}
+                >
+                  <span className="text-gray-700">
+                    {friend.airportCode 
+                      ? AIRPORTS.find(a => a.code === friend.airportCode)?.name
+                      : "Select Airport"}
+                  </span>
+                  {isDropdownOpen[friend.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </div>
+                
+                {isDropdownOpen[friend.id] && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {AIRPORTS.map(airport => (
+                      <div
+                        key={airport.code}
+                        className={`p-2 hover:bg-gray-100 cursor-pointer ${
+                          friend.airportCode === airport.code ? 'bg-blue-50' : ''
+                        }`}
+                        onClick={() => {
+                          updateFriend(friend.id, 'airportCode', airport.code);
+                          toggleDropdown(friend.id);
+                        }}
+                      >
+                        {airport.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
+        
+        <div className="mt-4 flex justify-between">
+          <button
+            onClick={addFriend}
+            className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            <Plus size={16} className="mr-1" />
+            Add Friend
+          </button>
+          
+          <button
+            onClick={calculateOptimalMeetingPoint}
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
+          >
+            Go!
+          </button>
+        </div>
+        
+        {optimizedPoint && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-bold text-green-800">Optimal Meeting Location:</h3>
+            <p className="text-green-700">{optimizedPoint.name}</p>
+          </div>
+        )}
       </div>
+    </div>
+  );
+};
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
-}
+export default GroupMeetupOptimizer;
