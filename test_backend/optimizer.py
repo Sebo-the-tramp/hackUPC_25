@@ -1,64 +1,34 @@
-def find_optimal_meetup(travelers, candidate_cities, flight_costs, num_nights=1):
-    min_total_cost = float('inf')
-    best_city = None
-    cost_breakdown = {}
-
-    for city_info in candidate_cities:
-        city_name = city_info['city']
-        hotel_cost = city_info['hotel_cost'] * num_nights
-        total_flight_cost = 0
-        missing_costs = False
-
-        for traveler in travelers:
-            traveler_name = traveler['name']
-            city_flight_cost = flight_costs.get(traveler_name, {}).get(city_name)
-            if city_flight_cost is None:
-                missing_costs = True
-                break
-            total_flight_cost += city_flight_cost
-
-        if missing_costs:
-            continue
-
-        total_cost = total_flight_cost + hotel_cost
-
-        cost_breakdown[city_name] = {
-            'total_flight_cost': total_flight_cost,
-            'hotel_cost': total_hotel_cost,
-            'total_cost': total_cost
-        }
-
-        if total_cost < min_total_cost:
-            min_total_cost = total_cost
-            best_city = city_name
-
-    if best_city is None:
-        return {
-            'error': 'No valid city found (possibly missing cost data)'
-        }
-
-    return {
-        'best_city': best_city,
-        'min_total_cost': min_total_cost,
-        'cost_breakdown': cost_breakdown
-    }
-
-# Advanced version
 def normalize(value, min_value, max_value, inverse=False):
     if max_value == min_value:
-        return 0
+        return 0  # avoid division by zero; treat as neutral
     norm = (value - min_value) / (max_value - min_value)
     return 1 - norm if inverse else norm
 
-def find_optimal_meetup_advanced(
+def find_optimal_meetup(
     travelers,
     candidate_cities,
     flight_costs,
     num_nights=1,
     weights=None
 ):
+    """
+    Calculate the best meetup city for a group based on weighted factors:
+    hotel cost, CO2 emissions, interest score, and event score.
+
+    Parameters:
+    - travelers: list of traveler dictionaries
+    - candidate_cities: list of city dictionaries
+    - flight_costs: dictionary mapping traveler names to flight cost per city
+    - num_nights: number of hotel nights
+    - weights: dictionary of weights for each factor
+
+    Returns:
+    - Dictionary with best city, best score, and detailed scores
+    """
+    
+    # Default weights if not provided
     if weights is None:
-        weights = { "cost": 0.4, "green": 0.2, "interest": 0.2, "event": 0.2 }
+        weights = { "hotel_cost": 0.4, "co2_kg": 0.2, "interest_score": 0.2, "event_score": 0.2 }
 
     scores = {}
     all_total_costs = []
@@ -66,6 +36,7 @@ def find_optimal_meetup_advanced(
     all_interest_scores = []
     all_event_scores = []
 
+    # Calculate raw metrics per city
     for city in candidate_cities:
         city_name = city['city']
         hotel_cost = city['hotel_cost'] * num_nights
@@ -73,10 +44,20 @@ def find_optimal_meetup_advanced(
         interest_score = city['interest_score']
         event_score = city['event_score']
 
-        total_flight_cost = sum(
-            flight_costs.get(traveler['name'], {}).get(city_name, float('inf'))
-            for traveler in travelers
-        )
+        total_flight_cost = 0
+        missing_data = False
+
+        for traveler in travelers:
+            traveler_name = traveler['name']
+            city_flight_cost = flight_costs.get(traveler_name, {}).get(city_name)
+            if city_flight_cost is None:
+                missing_data = True
+                break
+            total_flight_cost += city_flight_cost
+
+        if missing_data:
+            continue  # skip this city if missing flight data
+
         total_cost = total_flight_cost + hotel_cost
 
         all_total_costs.append(total_cost)
@@ -91,6 +72,7 @@ def find_optimal_meetup_advanced(
             'event_score': event_score
         }
 
+    # Find min and max for normalization
     min_cost, max_cost = min(all_total_costs), max(all_total_costs)
     min_co2, max_co2 = min(all_co2s), max(all_co2s)
     min_interest, max_interest = min(all_interest_scores), max(all_interest_scores)
@@ -106,10 +88,10 @@ def find_optimal_meetup_advanced(
         norm_event = normalize(data['event_score'], min_event, max_event)
 
         overall_score = (
-            weights['cost'] * norm_cost +
-            weights['green'] * norm_co2 +
-            weights['interest'] * norm_interest +
-            weights['event'] * norm_event
+            weights['hotel_cost'] * norm_cost +
+            weights['co2_kg'] * norm_co2 +
+            weights['interest_score'] * norm_interest +
+            weights['event_score'] * norm_event
         )
 
         scores[city_name]['normalized'] = {
@@ -123,6 +105,9 @@ def find_optimal_meetup_advanced(
         if overall_score > best_score:
             best_score = overall_score
             best_city = city_name
+
+    if best_city is None:
+        return { 'error': 'No valid city found (missing or incomplete data)' }
 
     return {
         'best_city': best_city,
