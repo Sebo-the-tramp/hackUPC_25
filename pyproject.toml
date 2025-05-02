@@ -1,0 +1,13 @@
+[project]
+name = "hackupc-25"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "flask>=3.1.0",
+  "ollama>=0.4.8",
+  "openai>=1.77.0",
+  "qwen-agent[code-interpreter,gui,mcp,rag]>=0.0.21",
+  "requests>=2.32.3",
+]
