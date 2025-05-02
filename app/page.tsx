@@ -68,10 +68,10 @@ const GroupMeetupOptimizer = () => {
     );
   }, []);
 
-  // Update map center when friends change
+  // Update map center when airport selections change (not when names change)
   useEffect(() => {
     updateMapCenter();
-  }, [friends]);
+  }, [friends.map(f => f.airportCode).join(',')]); // Only depend on airport codes
 
   // Function to add a new friend
   const addFriend = () => {
@@ -91,7 +91,7 @@ const GroupMeetupOptimizer = () => {
       friend.id === id ? { ...friend, [field]: value } : friend
     ));
     
-    // Force map re-render when changing airport
+    // Force map re-render only when changing airport (not when changing name)
     if (field === 'airportCode') {
       setMapKey(prev => prev + 1);
     }
@@ -246,11 +246,14 @@ const GroupMeetupOptimizer = () => {
             key={mapKey}
             center={[mapCenter.lat, mapCenter.lng]}
             zoom={zoomLevel}
+            minZoom={2} // Restrict minimum zoom level to prevent zooming out too far
+            maxBounds={[[-90, -180], [90, 180]]} // Restrict map panning within world bounds
             style={{ height: "100%", width: "100%" }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              noWrap={true} // Prevent the map from repeating horizontally
             />
             {getFriendMarkers()}
             {getOptimizedMarker()}
@@ -283,7 +286,7 @@ const GroupMeetupOptimizer = () => {
                   placeholder="Name"
                   value={friend.name}
                   onChange={e => updateFriend(friend.id, 'name', e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded text-black"
                 />
               </div>
               
