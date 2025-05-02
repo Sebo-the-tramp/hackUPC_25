@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MapPin, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 
 // Need to fix Leaflet marker icon issue in Next.js
@@ -237,9 +237,9 @@ const GroupMeetupOptimizer = () => {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      {/* Leaflet Map */}
-      <div className="absolute inset-0 z-0">
+    <div className="w-full h-screen overflow-hidden relative">
+      {/* Leaflet Map - Now covers the full screen with zoom controls at bottom left */}
+      <div className="w-full h-full absolute inset-0" style={{ zIndex: 0 }}>
         {/* Only render the map once the icons are loaded */}
         {friendIcon && (
           <MapContainer
@@ -249,20 +249,23 @@ const GroupMeetupOptimizer = () => {
             minZoom={2} // Restrict minimum zoom level to prevent zooming out too far
             maxBounds={[[-90, -180], [90, 180]]} // Restrict map panning within world bounds
             style={{ height: "100%", width: "100%" }}
+            zoomControl={false} // Disable default zoom control
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               noWrap={true} // Prevent the map from repeating horizontally
             />
+            {/* Add ZoomControl with position="bottomleft" */}
+            <ZoomControl position="bottomleft" />
             {getFriendMarkers()}
             {getOptimizedMarker()}
           </MapContainer>
         )}
       </div>
       
-      {/* Friends Management Panel */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl w-80 p-4 max-h-[90vh] overflow-y-auto z-10">
+      {/* Friends Management Panel - Now with a higher z-index to ensure it stays on top */}
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl w-80 p-4 max-h-[90vh] overflow-y-auto" style={{ zIndex: 1000 }}>
         <h1 className="text-2xl font-bold text-gray-800 mb-4">Group Meetup Optimizer</h1>
         
         <div className="space-y-4">
@@ -304,7 +307,7 @@ const GroupMeetupOptimizer = () => {
                 </div>
                 
                 {isDropdownOpen[friend.id] && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-20 w-full mt-1 bg-white text-black border border-gray-400 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {AIRPORTS.map(airport => (
                       <div
                         key={airport.code}
