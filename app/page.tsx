@@ -239,7 +239,7 @@ const GroupMeetupOptimizer = () => {
   return (
     <div className="w-full h-screen overflow-hidden relative">
       {/* Leaflet Map - Now covers the full screen with zoom controls at bottom left */}
-      <div className="w-full h-full absolute inset-0" style={{ zIndex: 0 }}>
+      <div className="w-full h-full absolute inset-0" style={{ zIndex: 0, backgroundColor: "#aad3df" }}>
         {/* Only render the map once the icons are loaded */}
         {friendIcon && (
           <MapContainer
@@ -248,7 +248,7 @@ const GroupMeetupOptimizer = () => {
             zoom={zoomLevel}
             minZoom={2} // Restrict minimum zoom level to prevent zooming out too far
             maxBounds={[[-90, -180], [90, 180]]} // Restrict map panning within world bounds
-            style={{ height: "100%", width: "100%" }}
+            style={{ height: "100%", width: "100%", background: "#aad3df" }}
             zoomControl={false} // Disable default zoom control
           >
             <TileLayer
@@ -265,7 +265,7 @@ const GroupMeetupOptimizer = () => {
       </div>
       
       {/* Friends Management Panel - Now with a higher z-index to ensure it stays on top */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl w-80 p-4 max-h-[90vh] overflow-y-auto" style={{ zIndex: 1000 }}>
+      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl w-80 p-4 max-h-[90vh] overflow-visible" style={{ zIndex: 1000 }}>
         <h1 className="text-2xl font-bold text-gray-800 mb-4">Group Meetup Optimizer</h1>
         
         <div className="space-y-4">
@@ -307,7 +307,7 @@ const GroupMeetupOptimizer = () => {
                 </div>
                 
                 {isDropdownOpen[friend.id] && (
-                  <div className="absolute z-20 w-full mt-1 bg-white text-black border border-gray-400 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-20 w-full mt-1 bg-white text-black border border-gray-400 rounded-md shadow-lg overflow-visible">
                     {AIRPORTS.map(airport => (
                       <div
                         key={airport.code}
