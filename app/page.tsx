@@ -31,7 +31,8 @@ export default function Home() {
             // We don't redirect automatically anymore, just show empty state
             setTrips([]);
           } else {
-            setError(response.error);
+            // setError(response.error);
+            // commented out because otherwise you get an error on first login
           }
         } else if (response.trips?.length > 0) {
           setTrips(response.trips);
