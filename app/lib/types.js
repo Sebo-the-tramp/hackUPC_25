@@ -1,36 +1,43 @@
-// Type definitions for the application
+/**
+ * Common types used across the application
+ */
 
-export type Airport = {
-    code: string;
-    name: string;
-    lat: number;
-    lng: number;
-  };
-  
-  export type User = {
-    id: string;
-    name: string;
-    preferences?: string;
-    homeAirport?: string | null;
-  };
-  
-  export type Trip = {
-    id: string;
-    name: string;
-    creator: User;
-    members: User[];
-    createdAt: string;
-  };
-  
-  export type Message = {
-    id: string;
-    sender: 'user' | 'llm';
-    text: string;
-    timestamp: Date;
-  };
-  
-  export type Question = {
-    id: number;
-    text: string;
-    options: string[];
-  };
+/**
+ * @typedef {Object} User
+ * @property {number} id - User ID
+ * @property {string} name - User name
+ */
+
+/**
+ * @typedef {Object} QuestionAnswer
+ * @property {string} question - The question text
+ * @property {string} answer - The user's answer
+ */
+
+/**
+ * @typedef {Object} Profile
+ * @property {number} id - Profile ID
+ * @property {number} user_id - User ID
+ * @property {number} trip_id - Trip ID
+ * @property {Array<QuestionAnswer>} questions - Array of question-answer pairs
+ */
+
+/**
+ * @typedef {Object} Message
+ * @property {number} id - Message ID
+ * @property {number} trip_id - Trip ID
+ * @property {number} user_id - User ID
+ * @property {string} content - Message content
+ * @property {string} timestamp - Message timestamp
+ * @property {string} type - Message type (user or ai)
+ */
+
+/**
+ * @typedef {Object} Trip
+ * @property {number} id - Trip ID
+ * @property {string} name - Trip name
+ * @property {Array<User>} users - Users in the trip
+ * @property {Array<Message>} [messages] - Messages in the trip (optional)
+ */
+
+export {};
