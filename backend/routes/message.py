@@ -61,7 +61,7 @@ def process_ai_response(trip_id, message_id):
                 })
         
         # Get AI response
-        ai_response = get_ai_message([p.to_dict(only=("user.name", "questions")) for p in profiles], formatted_messages)
+        ai_response = get_ai_message([p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles], formatted_messages)
         
         # Save the AI response to the database
         if ai_response:
