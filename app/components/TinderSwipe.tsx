@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { env } from 'process';
 
 type Question = {
   id: number;
@@ -22,22 +23,11 @@ const TinderSwipe: React.FC<TinderSwipeProps> = ({ questions, onComplete, isNewT
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right' | null>(null);
-  const [selectedAirport, setSelectedAirport] = useState("");
+  const [airportCode, setAirportCode] = useState("");
+  const [airportError, setAirportError] = useState<string | null>(null);
+  const [validatingAirport, setValidatingAirport] = useState(false);
+  const [airportName, setAirportName] = useState("");
   const cardRef = useRef<HTMLDivElement>(null);
-  
-  // Popular airports for dropdown
-  const airports = [
-    { code: "BCN", name: "Barcelona El Prat Airport" },
-    { code: "MAD", name: "Madrid Barajas Airport" },
-    { code: "LHR", name: "London Heathrow Airport" },
-    { code: "CDG", name: "Paris Charles de Gaulle Airport" },
-    { code: "AMS", name: "Amsterdam Schiphol Airport" },
-    { code: "FRA", name: "Frankfurt Airport" },
-    { code: "FCO", name: "Rome Fiumicino Airport" },
-    { code: "ZRH", name: "Zurich Airport" },
-    { code: "VIE", name: "Vienna International Airport" },
-    { code: "IST", name: "Istanbul Airport" },
-  ];
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -88,24 +78,37 @@ const TinderSwipe: React.FC<TinderSwipeProps> = ({ questions, onComplete, isNewT
     setDirection(null);
   };
 
-  const selectAnswer = (answer: string) => {
-    // If this is the last question and it's our airport question
-    if (currentQuestionIndex === questions.length - 1 && currentQuestion.text.includes("home airport")) {
-      // Use the selected airport value instead of swiped answer
-      const newAnswers = [...answers, { questionId: currentQuestion.id, answer: selectedAirport }];
-      setAnswers(newAnswers);
-      
-      // Complete the questionnaire
-      onComplete(newAnswers);
-      return;
+  // Simplified version that just collects the airport code without validation
+const validateAirportCode = async () => {
+  if (!airportCode.trim()) {
+    setAirportError('Please enter an airport code');
+    return false;
+  }
+
+  // Just accept whatever the user entered
+  setAirportName(airportCode.toUpperCase());
+  return true;
+};
+
+  const handleAirportSubmit = async () => {
+    const isValid = await validateAirportCode();
+    if (isValid) {
+      // Use the validated airport code as the answer
+      selectAnswer(airportCode.toUpperCase());
     }
-    
+  };
+
+  const selectAnswer = (answer: string) => {
     const newAnswers = [...answers, { questionId: currentQuestion.id, answer }];
     setAnswers(newAnswers);
     
     // Animate card off screen
     const targetX = answer === currentQuestion.options[1] ? 1000 : -1000;
-    setOffset({ x: targetX, y: 0 });
+    
+    // Don't animate for the airport question
+    if (currentQuestionIndex !== questions.length - 1 || !currentQuestion.text.includes("home airport")) {
+      setOffset({ x: targetX, y: 0 });
+    }
     
     // Move to next question or complete
     setTimeout(() => {
@@ -129,8 +132,11 @@ const TinderSwipe: React.FC<TinderSwipeProps> = ({ questions, onComplete, isNewT
       }
     };
     
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Only add keyboard handlers for non-airport questions
+    if (!currentQuestion.text.includes("home airport")) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
   }, [currentQuestion]);
 
   const getCardStyle = () => {
@@ -140,8 +146,8 @@ const TinderSwipe: React.FC<TinderSwipeProps> = ({ questions, onComplete, isNewT
     };
   };
 
-  // Check if current question is the special airport question (last question)
-  const isAirportQuestion = currentQuestionIndex === questions.length - 1;
+  // Check if current question is the special airport question
+  const isAirportQuestion = currentQuestion.text.includes("home airport");
   
   return (
     <div className="w-full max-w-md mx-auto p-10">
@@ -186,38 +192,48 @@ const TinderSwipe: React.FC<TinderSwipeProps> = ({ questions, onComplete, isNewT
             </div>
             
             {isAirportQuestion ? (
-              /* Airport dropdown for the last question */
+              /* Airport input for the last question */
               <div className="py-6 px-6 bg-gray-50 rounded-lg mb-20 flex flex-col items-center">
-                <div className="relative w-full max-w-xs">
-                  <select
-                    value={selectedAirport}
-                    onChange={(e) => setSelectedAirport(e.target.value)}
-                    className="block appearance-none w-full bg-white border border-gray-300 rounded-md py-3 px-4 pr-8 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Select your airport</option>
-                    {airports.map((airport) => (
-                      <option key={airport.code} value={airport.code}>
-                        {airport.code} - {airport.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
+                <div className="w-full max-w-xs mb-2">
+                  <label htmlFor="airportCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    ICAO Airport Code (e.g., KJFK, EGLL, LFPG)
+                  </label>
+                  <input
+                    type="text"
+                    id="airportCode"
+                    value={airportCode}
+                    onChange={(e) => {
+                      setAirportCode(e.target.value.toUpperCase());
+                      setAirportError(null);
+                      setAirportName('');
+                    }}
+                    className={`w-full p-3 border ${
+                      airportError ? 'border-red-500' : 'border-gray-300'
+                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase`}
+                    placeholder="Enter 4-letter ICAO code"
+                    maxLength={4}
+                    autoComplete="off"
+                  />
                 </div>
                 
+                {airportError && (
+                  <p className="mt-1 text-sm text-red-600 w-full max-w-xs text-left">{airportError}</p>
+                )}
+                
+                {airportName && !airportError && (
+                  <p className="mt-1 text-sm text-green-600 w-full max-w-xs text-left">Found: {airportName}</p>
+                )}
+                
                 <button
-                  onClick={() => selectedAirport && selectAnswer(selectedAirport)}
-                  disabled={!selectedAirport}
-                  className={`mt-6 px-6 py-2 rounded-md font-medium ${
-                    selectedAirport
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  onClick={handleAirportSubmit}
+                  disabled={validatingAirport || !airportCode.trim()}
+                  className={`mt-4 px-6 py-2 rounded-md font-medium ${
+                    validatingAirport || !airportCode.trim()
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
                   }`}
                 >
-                  Complete
+                  {validatingAirport ? 'Validating...' : 'Complete'}
                 </button>
               </div>
             ) : (
