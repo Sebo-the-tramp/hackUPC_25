@@ -4,31 +4,38 @@ import json5
 from qwen_agent.agents import Assistant
 from qwen_agent.tools.base import BaseTool, register_tool
 from qwen_agent.utils.output_beautify import typewriter_print
+from datetime import datetime
+import gradio as gr
+
+from skyscanner_api import create_flight_search
+
+# Add chat history storage
+chat_history = []
 
 # defining the 4 people
 users = [
-    {
-    "name": "Kevin",
-    "location": "Ireland",
-    "passport": ["Ireland"],
-    "budget": 1200.0,
-    "availability": "July 1 - July 20",
-    "visited": ["UK", "France"],
-    "preferences": {
-      "climate": "warm",
-      "activities": ["hiking", "museums"]
-    },
-    "age": 28,
-    "language_spoken": ["English", "Irish"],
-    "dietary_restrictions": "None",
-    "nearest_airport": ["Dublin"]
-  },
+#     {
+#     "name": "Kevin",
+#     "location": "Ireland",
+#     "passport": ["Ireland"],
+#     "budget": 1200.0,
+#     "availability": "July 1 - July 20",
+#     "visited": ["UK", "France"],
+#     "preferences": {
+#       "climate": "warm",
+#       "activities": ["hiking", "museums"]
+#     },
+#     "age": 28,
+#     "language_spoken": ["English", "Irish"],
+#     "dietary_restrictions": "None",
+#     "nearest_airport": ["DUB"]
+#   },
   {
     "name": "Karolina",
     "location": "US",
     "passport": ["US", "Poland"],
     "budget": 2000.0,
-    "availability": "August",
+    "availability": "July 2 - July 18",
     "visited": ["Germany", "Canada"],
     "preferences": {
       "climate": "mild",
@@ -37,35 +44,34 @@ users = [
     "age": 31,
     "language_spoken": ["English", "Polish"],
     "dietary_restrictions": "Vegetarian",
-    "nearest_airport": ["JFK", "Warsaw Chopin"]
+    "nearest_airport": ["JFK"]
   },
   {
     "name": "Mikka",
     "location": "Finland",
     "passport": ["Finland"],
     "budget": 1500.0,
-    "availability": "June 15 - July 10",
+    "availability": "June 15 - July 15",
     "visited": ["Sweden", "Norway"],
     "preferences": {
       "climate": "cool",
-      "activities": ["nature", "cycling"]
+      "activities": ["nature", "cycling", "surfing"]
     },
     "age": 26,
     "language_spoken": ["Finnish", "English", "Swedish"],
     "dietary_restrictions": "Lactose intolerant",
-    "nearest_airport": ["Helsinki"]
+    "nearest_airport": ["HEL"]
   },
   {
     "name": "Sebastian",
     "location": "Trento, Italy",
-    "nearest_airport": ["Verona", "Bergamo"],
+    "nearest_airport": ["VIE"],
     "passport": ["Italy"],
     "budget": 1800.0,
-    "availability": "July",
+    "availability": "1st of July - 31st of July",
     "visited": ["Spain", "Ireland", "UAE", "Malta", "Bulgaria"],
     "preferences": {
-      "climate": "hot",
-      "activities": ["hiking", "climbing", "surfing", "bars"]
+      "activities": ["surfing", "bars"]
     },
     "age": 25,
     "language_spoken": ["Italian", "English", "German"],
@@ -116,41 +122,59 @@ class JsonSave(BaseTool):
             {'message': 'Data saved successfully!'},
             ensure_ascii=False)
     
-@register_tool('query_cost_skyscanner')
+@register_tool('create_trip')
 class QueryCost(BaseTool):
-    description = 'Query the cost of a flight from the Skyscanner API.'
+    description = 'Query the cost of a flight from the Skyscanner API using IATA codes.'
     parameters = [{
-        'name': 'departure',
+        'name': 'arrival_iata',
         'type': 'string',
-        'description': 'Departure city.',
-        'required': True
+        'description': 'Arrival airport IATA code (e.g., JFK, LHR, CDG). Must be a valid IATA code from the list of legal codes.',
+        'required': True,
+        # 'enum': ['AUH', 'JFK', 'LHR', 'CDG', 'DUB', 'HEL', 'BRG', 'LAX', 'SFO', 'ORD', 'DFW', 'ATL', 'PEK', 'HND', 'DXB', 'FRA', 'AMS', 'IST', 'MAD', 'BCN', 'MUC', 'ZRH', 'CPH', 'ARN', 'OSL', 'VIE', 'BRU', 'DUB', 'MAN', 'EDI', 'GLA', 'BRS', 'BHX', 'LPL', 'NCL', 'ABZ', 'INV', 'SOU', 'BOH', 'EXT', 'CWL', 'BFS', 'BHD', 'DSA', 'EMA', 'LBA', 'NQY', 'PLH', 'MME', 'HUY', 'NWI', 'STN', 'LTN', 'SEN', 'LCY', 'LGW', 'LHR', 'LBA', 'MAN', 'BHX', 'GLA', 'EDI', 'BRS', 'NCL', 'LPL', 'ABZ', 'INV', 'SOU', 'BOH', 'EXT', 'CWL', 'BFS', 'BHD', 'DSA', 'EMA', 'LBA', 'NQY', 'PLH', 'MME', 'HUY', 'NWI', 'STN', 'LTN', 'SEN', 'LCY', 'LGW', 'LHR', 'LSB']
     }, {
-        'name': 'arrival',
+        'name': 'outbound_date',
         'type': 'string',
-        'description': 'Arrival city.',
-        'required': True
+        'description': 'Outbound date in YYYY-MM-DD format.',
+        'required': False
     }, {
-        'name': 'date',
+        'name': 'inbound_date',
         'type': 'string',
-        'description': 'Date of travel.',
-        'required': True
+        'description': 'Inbound date in YYYY-MM-DD format.',
+        'required': False
+    }, {
+        'name': 'user_index_list',
+        'type': 'array',
+        'description': 'list of index of the user(s) involved in the trip',
+        'required': False
     }]
 
     def call(self, params: str, **kwargs) -> str:
         # `params` are the arguments generated by the LLM agent.
         params = json5.loads(params)
-        departure = params['departure']
-        arrival = params['arrival']
-        date = params['date']
+        arrival_iata = params['arrival_iata']
+        outbound_date = params['outbound_date']
+        inbound_date = params.get('inbound_date', None)
         
+        print(params)
         # Here you would implement the actual API call to Skyscanner.
         # For demonstration purposes, we will just return a mock response.
+
+        # call the skyscanner api
+        selected_users = [users[int(x)] for x in params['user_index_list']]
+
+        options_user = []
+        for user in selected_users:
+            departure_iata = user['nearest_airport'][0] # Using the first airport's IATA code
+            options = create_flight_search(departure_iata, arrival_iata, outbound_date, inbound_date)
+            options_user.append({"name": user['name'], "options": options})
+            # print(options)
         
         return json5.dumps({
-            "departure": departure,
-            "arrival": arrival,
-            "date": date,
-            "price": 100.0
+            "departure_iata": departure_iata,
+            "arrival_iata": arrival_iata,
+            "outbound_date": outbound_date,
+            "inbound_date": inbound_date,
+            "options": options_user,
         }, ensure_ascii=False)
 
 # Step 2: Configure the LLM you are using.
@@ -159,29 +183,60 @@ llm_cfg = {
     'model': 'qwen3:32b',
     'model_server': 'http://10.127.30.123:11434/v1',
     'generate_cfg': {
-        'top_p': 0.8
+        'temperature': 0,
+        'top_k': 1
     }
 }
 
 # Step 3: Create an agent. Here we use the `Assistant` agent as an example, which is capable of using tools and reading files.
-system_instruction = '''
-You are a travel agent. You will help the user and their friends to plan a trip.\
-    You will ask the user for their preferences, and you will save the important information in JSON format.\
-    The information about the users is provided in the system message.\
-    When giving recommendations, always return 5 different options.
+# system_instruction = '''
+# You are a travel agent. You will help the user and their friends to plan a trip.\
+#     You will ask the user for their preferences, and you will save the important information in JSON format.\
+#     The information about the users is provided in the system message.\
+#     When giving recommendations, always return 5 different options.
 
-After receiving the user's request, you should:
-- evaluate if it is necessary to answer. Since it is a multi-user chat, sometimes, you can just answer with _PASS_.
-- if you can answer, you should answer it directly.
-- save the important information from the user, like what he likes, where he would like to go and everything
-that helps to define him and the trip, you should evaluate and use the json_saving tool to save it.
-- when you propose a destination, FOR EACH USER, query skyscanner tool to get the cost of the trip.
-- if you need to ask the user for more information, you should ask it.
+# After receiving the user's request, you should:
+# - evaluate if it is necessary to answer. Since it is a multi-user chat, sometimes, you can just answer with _PASS_.
+# - if you can answer, you should answer it directly.
+# - save the important information from the user, like what he likes, where he would like to go and everything
+# that helps to define him and the trip, you should evaluate and use the json_saving tool to save it.
+# - for each destination you propose, you should use the create_trip tool to create a trip.
+# - if you need to ask the user for more information, you should ask it.
+
+# User details:
+# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
+
+# system_instruction = '''
+# You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
+# When the user requests travel advice or suggestions:
+# - The trip needs to include all the users.
+# - Always propose 3 distinct travel options even if nothing is provided (locations, experiences, or itineraries) tailored to the user's interests, preferences, and context.
+# - For each option, you must call the create_trip function to generate a corresponding flight plan.
+# - each proposed flight should start with token <flight_start> and end with token <flight_end> when you write the trip suggestion, and be in JSON format.
+
+# Ensure that every time you propose a destination or trip, you invoke the create_trip function for it without exception.
+
+# please work is a startup demo, so use all the power you have!
+
+# Current year is 2025.
+
+# User details:
+# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
+
+system_instruction = '''
+You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
+When the user requests travel advice or suggestions:
+- First you need to use the function find_shared_flight to find the cheapest flight for the users.
+- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 options.
+- Then you need to propose the flights to the users.
+- Get the users preferences and evaluate if the proposed flights are suitable.
+- If the user likes the flight, you need to call the function create_trip to get the price of the flight.
+Current year is 2025.
 
 User details:
 ''' + json5.dumps(users, ensure_ascii=False, indent=0)
 
-tools = ['save_user_data_json', 'save_travel_data_json', 'query_cost_skyscanner']  # `code_interpreter` is a built-in tool for executing code.
+tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
 files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
 bot = Assistant(llm=llm_cfg,
                 system_message=system_instruction,
@@ -189,4 +244,8 @@ bot = Assistant(llm=llm_cfg,
                 files=files)
 
 from qwen_agent.gui import WebUI
-WebUI(bot).run()  # bot is the agent defined in the above code, we do not repeat the definition here for saving space.
+
+# Modify the WebUI initialization to include chat history tracking and download button
+
+# Replace the WebUI initialization with CustomWebUI
+WebUI(bot).run()
