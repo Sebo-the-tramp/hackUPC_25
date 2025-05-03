@@ -1,7 +1,9 @@
-# Backend Documentation
+# Documentation
 
-This document provides an overview of the backend structure and functionality for reference by the Claude Code agent.
-Please refer to this file when making changes to the backend and keep it updated as modifications are made.
+This document provides an overview of the application structure and functionality for reference by the Claude Code agent.
+Please refer to this file when making changes to the application and keep it updated as modifications are made.
+
+# Backend Documentation
 
 ## Backend Overview
 
@@ -59,4 +61,87 @@ trips, profiles, and messages.
    response
 3. The API generally uses cookies for authentication, with the `user_id` cookie being set upon creation of a user
 4. In development mode, the database is reset on each application startup unless the PROD environment variable is set
+
+# Frontend Documentation
+
+## Frontend Overview
+
+The frontend is built with Next.js (App Router) and Tailwind CSS. It provides a user interface for:
+
+1. Creating new trips with a multi-step flow
+2. Viewing and joining existing trips
+3. Chatting with trip members
+4. Visualizing optimal meeting points on a map
+5. Inviting others to join a trip
+
+The application uses a mobile-first, responsive design approach and communicates with the backend API via fetch requests.
+
+## Frontend Files
+
+| File/Directory                | Purpose                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `app/page.tsx`                | Homepage that lists the user's trips or redirects to trip creation if none exist                        |
+| `app/layout.tsx`              | Root layout component that wraps all pages with common elements                                         |
+| `app/lib/api.js`              | API client for making requests to the backend with methods for all API endpoints                        |
+| `app/lib/types.js`            | TypeScript type definitions for common data structures (User, Trip, Message, etc.)                      |
+| `app/trips/new/page.tsx`      | Multi-step flow for creating a new trip (trip name, user name, preferences, home airport)               |
+| `app/trips/[tripId]/page.tsx` | Trip details page showing members, chat interface, and map visualization                                |
+| `app/trips/[tripId]/invite/page.tsx` | Invitation flow for joining an existing trip (similar to trip creation)                           |
+| `app/components/ChatInterface.tsx` | Chat UI component for sending and displaying messages in a trip                                      |
+| `app/components/TinderSwipe.tsx`  | Swipeable question interface for answering preference questions                                    |
+| `app/components/TripMap.tsx`     | Map visualization showing users' home airports and optimal meeting point                            |
+| `app/components/UserCard.tsx`    | Card component displaying user info with invitation functionality                                    |
+
+## Key Components
+
+### Pages
+
+- **Homepage** (`app/page.tsx`): Fetches user's trips from `/api/my-trips` endpoint. Redirects to trip creation if none exist or displays a list of existing trips.
+- **Trip Creation** (`app/trips/new/page.tsx`): Multi-step flow for creating a new trip, including trip name, user name, preference questions, and optional home airport selection.
+- **Trip Details** (`app/trips/[tripId]/page.tsx`): Main trip page displaying trip information, chat interface, user list, and map visualization.
+- **Trip Invitation** (`app/trips/[tripId]/invite/page.tsx`): Handles the flow for joining an existing trip via an invitation link.
+
+### Components
+
+- **ChatInterface**: Displays message history and allows sending new messages in a trip via the `/api/send-message` endpoint.
+- **TinderSwipe**: Provides a swipeable interface for answering preference questions with support for drag interactions and keyboard navigation.
+- **TripMap**: Uses Leaflet to display a map with markers for member home airports and calculates an optimal meeting point.
+- **UserCard**: Displays user information with preferences and home airport, includes functionality for inviting new members.
+
+### API Client
+
+The `app/lib/api.js` file provides methods for interacting with the backend API:
+
+- `getMyTrips()`: Fetches the user's trips list
+- `createTrip(data)`: Creates a new trip with user profile
+- `joinTrip(data)`: Joins an existing trip
+- `getTripInfo(tripId)`: Gets information about a specific trip
+- `sendMessage(data)`: Sends a message in a trip
+
+Each method handles error states and includes credentials with requests to maintain cookie-based authentication.
+
+## User Flows
+
+1. **New User Flow**:
+   - User lands on homepage → Redirected to trip creation
+   - User enters trip name → Enters user name → Answers preference questions → Optionally selects home airport
+   - User is redirected to the trip page
+
+2. **Existing User Flow**:
+   - User lands on homepage → Sees list of trips → Selects a trip
+   - User views trip details including chat history and member list
+   - User can send messages or invite others to join
+
+3. **Invitation Flow**:
+   - User receives invitation link → Views trip info and creator name
+   - User enters name → Answers preference questions → Optionally selects home airport
+   - User is redirected to the trip page as a new member
+
+## Important Notes
+
+1. When modifying components, maintain the existing design patterns and styling approach
+2. API interactions should follow the pattern set in `app/lib/api.js` to handle errors consistently
+3. Authentication is cookie-based, managed automatically by the browser when including credentials in fetch requests
+4. Some components like TripMap use dynamic imports to handle client-side rendering requirements
+5. When adding new features, ensure they work on both mobile and desktop viewports
 

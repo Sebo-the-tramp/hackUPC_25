@@ -126,12 +126,19 @@ const TripPage: React.FC<TripPageProps> = ({ params }) => {
   // Remove creator from members list to avoid duplication
   const members = formattedMembers.filter(m => m.name !== tripData.creator_name);
 
+  const copyLinkToClipboard = () => {
+    navigator.clipboard.writeText(window.location.href);
+  };
+
+  // Combine creator with other members (since it's already in the members array)
+  const allMembers = formattedMembers;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with shareable link */}
         <div className="bg-white p-4 rounded-lg shadow-md mb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-bold text-indigo-700">{tripData.trip_name}</h1>
             <button
               onClick={() => router.push("/")}
@@ -140,46 +147,34 @@ const TripPage: React.FC<TripPageProps> = ({ params }) => {
               Back to Home
             </button>
           </div>
-        </div>
-
-        {/* Main content grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)]">
-          {/* Top left: Creator card */}
-          <div className="bg-indigo-50 p-4 rounded-lg shadow-md">
-            <h2 className="text-lg font-semibold text-indigo-700 mb-3">
-              Trip Creator
-            </h2>
-            <UserCard user={creator} isCreator={true} tripId={tripId} />
-          </div>
-
-          {/* Top right: Friends cards */}
-          <div className="bg-indigo-50 p-4 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-indigo-700">Friends</h2>
-              <span className="text-sm text-indigo-600 font-medium">
-                {members.length} members
-              </span>
-            </div>
-
-            <div className="space-y-3 max-h-[calc(100%-3rem)] overflow-y-auto">
-              {members.length > 0
-                ? members.map((member) => (
-                    <UserCard key={member.id} user={member} tripId={tripId} />
-                  ))
-                : null}
-
-              {/* Always show an invite card at the end */}
-              <UserCard
-                user={{ id: "add", name: "Invite Friends" }}
-                inviteLink={inviteLink}
-                canInvite={true}
-                tripId={tripId}
+          
+          {/* Shareable link with copy button */}
+          <div className="flex items-center bg-gray-50 rounded-lg p-2">
+            <span className="text-gray-600 text-sm mr-2">Share this trip:</span>
+            <div className="flex-1 overflow-hidden">
+              <input 
+                type="text" 
+                readOnly 
+                value={window.location.href}
+                className="w-full bg-transparent border-none text-gray-700 text-sm focus:outline-none overflow-x-auto"
               />
             </div>
+            <button 
+              onClick={copyLinkToClipboard}
+              className="ml-2 p-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition"
+              title="Copy to clipboard"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+            </button>
           </div>
+        </div>
 
-          {/* Bottom left: Chat interface */}
-          <div className="bg-white rounded-lg shadow-md h-[calc(100vh-24rem)] md:h-auto">
+        {/* Main content grid - chat on left, members+map on right */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-16rem)]">
+          {/* Left side: Chat interface */}
+          <div className="bg-white rounded-lg shadow-md h-full">
             <ChatInterface 
               tripId={tripId} 
               initialMessages={tripData.messages.map(msg => ({
@@ -192,13 +187,38 @@ const TripPage: React.FC<TripPageProps> = ({ params }) => {
             />
           </div>
 
-          {/* Bottom right: Map */}
-          <div className="z-0 bg-white rounded-lg shadow-md h-[calc(100vh-24rem)] md:h-auto">
-            <TripMap
-              members={[creator, ...members].filter(
-                (member) => !!member.homeAirport
-              )}
-            />
+          {/* Right side: Members and Map stacked vertically */}
+          <div className="flex flex-col gap-4 h-full">
+            {/* Members section */}
+            <div className="bg-indigo-50 p-4 rounded-lg shadow-md flex-1 min-h-[40%]">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold text-indigo-700">Trip Members</h2>
+                <span className="text-sm text-indigo-600 font-medium">
+                  {allMembers.length} members
+                </span>
+              </div>
+
+              <div className="space-y-3 max-h-[calc(100%-3rem)] overflow-y-auto">
+                {allMembers.map((member) => (
+                  <UserCard 
+                    key={member.id} 
+                    user={member} 
+                    tripId={tripId} 
+                    isCreator={member.name === tripData.creator_name}
+                    inviteLink={inviteLink}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Map section */}
+            <div className="z-0 bg-white rounded-lg shadow-md flex-1 min-h-[45%]">
+              <TripMap
+                members={allMembers.filter(
+                  (member) => !!member.homeAirport
+                )}
+              />
+            </div>
           </div>
         </div>
       </div>
