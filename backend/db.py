@@ -19,7 +19,7 @@ db_session = scoped_session(
 )
 
 # Import models to ensure they are registered with the declarative base
-from backend.models.models import Base, Trip, User, Profile, Message
+from backend.models import Base, Trip, User, Profile, Message
 
 
 def init_db():

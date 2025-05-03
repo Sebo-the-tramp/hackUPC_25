@@ -1,9 +1,10 @@
 """Main Flask application."""
-from flask import Flask
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+from pydantic import ValidationError
 
 from backend.db import init_db, shutdown_session
-from backend.routes.trip_routes import trip_bp
+from backend.routes import blueprints
 
 def create_app():
     """Create and configure the Flask application."""
@@ -12,8 +13,9 @@ def create_app():
     # Enable CORS
     CORS(app, supports_credentials=True)
     
-    # Register blueprints
-    app.register_blueprint(trip_bp)
+    # Register all blueprints from the routes package
+    for blueprint in blueprints:
+        app.register_blueprint(blueprint)
     
     # Initialize database
     with app.app_context():
@@ -21,6 +23,15 @@ def create_app():
     
     # Register shutdown function
     app.teardown_appcontext(shutdown_session)
+    
+    # Register global error handlers
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(error):
+        """Handle Pydantic validation errors globally."""
+        return jsonify({
+            "error": "Validation error",
+            "details": error.errors()
+        }), 400
     
     @app.route('/health', methods=['GET'])
     def health_check():

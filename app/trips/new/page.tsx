@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TinderSwipe from '../../components/TinderSwipe';
 import { createTrip } from '../../lib/api';
 
@@ -48,6 +48,7 @@ const AIRPORTS = [
 
 export default function NewTrip() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<'initial' | 'name' | 'onboarding' | 'airport'>('initial');
   const [userName, setUserName] = useState('');
   const [tripName, setTripName] = useState('');
@@ -55,6 +56,15 @@ export default function NewTrip() {
   const [homeAirport, setHomeAirport] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Check for tripName in URL params when component mounts
+  useEffect(() => {
+    const tripNameFromURL = searchParams.get('tripName');
+    if (tripNameFromURL) {
+      setTripName(tripNameFromURL);
+      setStep('name'); // Skip to the name step if trip name is provided
+    }
+  }, [searchParams]);
 
   const handleSetTripName = (e: React.FormEvent) => {
     e.preventDefault();
