@@ -1,7 +1,7 @@
 """Database setup and configuration."""
 
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -19,28 +19,36 @@ db_session = scoped_session(
 )
 
 # Import models to ensure they are registered with the declarative base
-from backend.models.models import Base, Trip, User, Message
+from backend.models.models import Base, Trip, User, Profile, Message
 
 
 def init_db():
     """Initialize database and create tables.
-    
+
     If PROD environment variable is not set, drop all tables first.
     """
     # Check if we're in production mode
-    is_prod = os.environ.get('PROD', '').lower() in ('true', '1', 'yes')
+    is_prod = os.environ.get("PROD", "").lower() in ("true", "1", "yes")
     
     if not is_prod:
-        # In development mode, drop all tables before recreating
+        # In development mode, drop all tables to start fresh
         Base.metadata.drop_all(bind=engine)
-        print("Development mode: Cleared all database tables")
-    
-    # Create all tables
+        print("Database tables dropped.")
+
+    # Create all tables from the models
     Base.metadata.create_all(bind=engine)
-    print(f"{'Production' if is_prod else 'Development'} mode: Created all database tables")
+    print("Database tables created.")
+    
+    # Check if the connection is working
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("Database connection verified.")
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        raise
 
 
 def shutdown_session(exception=None):
     """Remove the session on app shutdown."""
     db_session.remove()
-

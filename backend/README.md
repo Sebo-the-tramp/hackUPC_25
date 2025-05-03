@@ -1,6 +1,6 @@
 # Backend Service
 
-A minimal Flask + SQLAlchemy + PostgreSQL backend for managing Users and Trips.
+A minimal Flask + SQLAlchemy + PostgreSQL backend for managing Users, Profiles, and Trips.
 
 ## Setup
 
@@ -42,10 +42,12 @@ A minimal Flask + SQLAlchemy + PostgreSQL backend for managing Users and Trips.
   {
     "trip_id": 1,
     "user_id": 1,
+    "profile_id": 1,
     "trip_url": "http://localhost:5000/?trip_id=1"
   }
   ```
 - **Cookie**: Sets a httpOnly secure cookie named `user_id` with the user's ID
+- **Note**: If the user_id cookie is already set, it will use the existing user and only create a new profile and trip.
 
 ### Get Trip Info
 - **URL**: `/api/trip-info`
@@ -108,14 +110,19 @@ A minimal Flask + SQLAlchemy + PostgreSQL backend for managing Users and Trips.
 ### User
 - id: Primary key
 - name: User's name
+- profiles: Relationship to Profile (one-to-many)
+
+### Profile
+- id: Primary key
 - questions: JSON data containing questions and answers
+- user_id: Foreign key to User
 - trip_id: Foreign key to Trip
 - messages: Relationship to Message (one-to-many)
 
 ### Trip
 - id: Primary key
 - name: Trip name
-- users: Relationship to User (one-to-many)
+- profiles: Relationship to Profile (one-to-many)
 - messages: Relationship to Message (one-to-many)
 
 ### Message
@@ -124,4 +131,4 @@ A minimal Flask + SQLAlchemy + PostgreSQL backend for managing Users and Trips.
 - is_ai: Boolean flag indicating if message is from an AI
 - created_at: Timestamp when message was created
 - trip_id: Foreign key to Trip
-- user_id: Foreign key to User (nullable for AI messages)
+- profile_id: Foreign key to Profile (nullable for AI messages)

@@ -31,6 +31,30 @@ Accept: application/json
 
 ###
 
+# @name CREATE_SECOND_TRIP
+# Create a second trip for the same user (reusing user_id cookie)
+POST http://localhost:5000/api/create-trip
+Content-Type: application/json
+Accept: application/json
+Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
+
+{
+  "name": "John Doe",
+  "trip_name": "Madrid Adventure",
+  "questions": [
+    {
+      "question": "What is your favorite place to visit?",
+      "answer": "Royal Palace"
+    },
+    {
+      "question": "How many days are you staying?",
+      "answer": "3"
+    }
+  ]
+}
+
+###
+
 # Get trip info
 GET http://localhost:5000/api/trip-info?trip_id={{CREATE_TRIP.response.body.trip_id}}
 Accept: application/json
