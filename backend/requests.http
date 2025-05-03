@@ -81,7 +81,7 @@ Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
 
 ###
 
-# Try to create a trip with missing data (should return an error)
+# Try to create a trip with missing data (should validate with pydantic)
 POST http://localhost:5000/api/create-trip
 Content-Type: application/json
 Accept: application/json
@@ -92,6 +92,24 @@ Accept: application/json
     {
       "question": "Preferred transportation?",
       "answer": "Public transit"
+    }
+  ]
+}
+
+###
+
+# Try to create a trip with invalid question format (should validate with pydantic)
+POST http://localhost:5000/api/create-trip
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Jane Smith",
+  "trip_name": "Paris Trip",
+  "questions": [
+    {
+      "question": "Preferred transportation?",
+      "ans": "Public transit"
     }
   ]
 }
@@ -147,7 +165,7 @@ Cookie: user_id={{CREATE_SECOND_TRIP.response.cookies.user_id.value}}
 
 ###
 
-# Try to join a trip with missing data (should return an error)
+# Try to join a trip with missing data (should validate with pydantic)
 POST http://localhost:5000/api/join-trip
 Content-Type: application/json
 Accept: application/json
@@ -155,4 +173,29 @@ Accept: application/json
 {
   "trip_id": "{{CREATE_TRIP.response.body.trip_id}}",
   "questions": []
+}
+
+###
+
+# Try to send a message with invalid trip_id type (should validate with pydantic)
+POST http://localhost:5000/api/send-message
+Content-Type: application/json
+Accept: application/json
+Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
+
+{
+  "trip_id": "not-a-number",
+  "content": "This message should fail validation"
+}
+
+###
+
+# Try to send a message with missing content (should validate with pydantic)
+POST http://localhost:5000/api/send-message
+Content-Type: application/json
+Accept: application/json
+Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
+
+{
+  "trip_id": "{{CREATE_TRIP.response.body.trip_id}}"
 }
