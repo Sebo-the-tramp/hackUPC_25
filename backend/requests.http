@@ -95,3 +95,64 @@ Accept: application/json
     }
   ]
 }
+
+###
+
+# @name JOIN_TRIP
+# Join an existing trip
+POST http://localhost:5000/api/join-trip
+Content-Type: application/json
+Accept: application/json
+
+{
+  "trip_id": "{{CREATE_TRIP.response.body.trip_id}}",
+  "name": "Jane Smith",
+  "questions": [
+    {
+      "question": "What is your favorite place to visit?",
+      "answer": "Park Güell"
+    },
+    {
+      "question": "How many days are you staying?",
+      "answer": "4"
+    },
+    {
+      "question": "What's your budget for the trip?",
+      "answer": "800 EUR"
+    }
+  ]
+}
+
+###
+
+# Join an existing trip with existing user (reusing user_id cookie)
+POST http://localhost:5000/api/join-trip
+Content-Type: application/json
+Accept: application/json
+Cookie: user_id={{CREATE_SECOND_TRIP.response.cookies.user_id.value}}
+
+{
+  "trip_id": "{{CREATE_TRIP.response.body.trip_id}}",
+  "questions": [
+    {
+      "question": "What is your favorite place to visit?",
+      "answer": "La Rambla"
+    },
+    {
+      "question": "How many days are you staying?",
+      "answer": "3"
+    }
+  ]
+}
+
+###
+
+# Try to join a trip with missing data (should return an error)
+POST http://localhost:5000/api/join-trip
+Content-Type: application/json
+Accept: application/json
+
+{
+  "trip_id": "{{CREATE_TRIP.response.body.trip_id}}",
+  "questions": []
+}

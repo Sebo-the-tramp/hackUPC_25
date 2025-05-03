@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -107,7 +107,7 @@ const TripMap: React.FC<TripMapProps> = ({ members }) => {
           })
         );
       } catch (error) {
-        console.error("Failed to load Leaflet:", error);
+        // Failed to load Leaflet, will show loading state
       }
     };
     

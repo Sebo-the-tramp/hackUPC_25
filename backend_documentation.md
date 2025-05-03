@@ -89,35 +89,81 @@ User (1) -----< Profile (N) >----- (1) Trip
   {
     "trip_id": 1,
     "user_id": 1,
-    "profile_id": 1,
-    "trip_url": "https://domain.com/trips/1"
+    "profile_id": 1
   }
   ```
 - **Notes**:
   - Sets HTTP-only cookie for user ID
   - Uses existing user if cookie is present
 
-### Get Trip Information
-- **URL**: `/api/trip-info`
-- **Method**: `GET`
-- **Parameters**: `trip_id` (query parameter)
-- **Description**: Returns trip details including messages
-- **Response**:
+### Join Trip
+- **URL**: `/api/join-trip`
+- **Method**: `POST`
+- **Description**: Joins an existing trip by creating a new profile for the user
+- **Request Body**:
   ```json
   {
-    "name": "Trip Name",
-    "creator": "Creator Name",
-    "messages": [
+    "trip_id": 1,
+    "name": "User Name",  // Optional if user_id cookie is present
+    "questions": [
       {
-        "id": 1,
-        "content": "Message content",
-        "is_ai": false,
-        "created_at": "2023-05-01T12:00:00",
-        "sender": "User Name"
+        "question": "Question text",
+        "answer": "Answer text"
       }
     ]
   }
   ```
+- **Response**:
+  ```json
+  {
+    "trip_id": 1,
+    "user_id": 1,
+    "profile_id": 1
+  }
+  ```
+- **Notes**:
+  - Sets HTTP-only cookie for user ID if user is new
+  - Uses existing user if cookie is present
+  - Name is optional if user already exists
+  - Prevents a user from joining the same trip multiple times
+
+### Get Trip Information
+- **URL**: `/api/trip-info`
+- **Method**: `GET`
+- **Parameters**: `trip_id` (query parameter)
+- **Description**: Returns trip details including messages, trip members, and whether the requesting user is a member
+- **Response**:
+  ```json
+  {
+    "trip_name": "Trip Name",
+    "creator_name": "Creator Name",
+    "is_member": true,
+    "messages": [
+      {
+        "sender_name": "User Name",
+        "content": "Message content",
+        "is_ai": false,
+        "created_at": "2023-05-01T12:00:00"
+      }
+    ],
+    "members": [
+      {
+        "user_id": 1,
+        "name": "Creator Name",
+        "profile_id": 1
+      },
+      {
+        "user_id": 2,
+        "name": "Member Name",
+        "profile_id": 2
+      }
+    ]
+  }
+  ```
+- **Notes**:
+  - `is_member` is a boolean indicating if the user with the current user_id cookie is a member of this trip
+  - Returns `false` for `is_member` if no user_id cookie is present or user is not a trip member
+  - `members` is an array of all users participating in the trip, including their user_id, name, and profile_id
 
 ### Get User's Trips
 - **URL**: `/api/my-trips`

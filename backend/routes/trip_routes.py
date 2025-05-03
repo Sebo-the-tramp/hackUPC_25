@@ -81,15 +81,11 @@ def create_trip():
     db_session.add(profile)
     db_session.commit()
     
-    # Create response with trip URL
-    trip_url = f"{request.url_root}?trip_id={new_trip.id}"
-    
     # Create response object
     response = make_response(jsonify({
         "trip_id": new_trip.id,
         "user_id": user.id,
-        "profile_id": profile.id,
-        "trip_url": trip_url
+        "profile_id": profile.id
     }))
     
     # Set user cookie only if it wasn't already set correctly
@@ -106,7 +102,8 @@ def trip_info():
     Query parameters:
     - trip_id: The ID of the trip to fetch
     
-    Returns JSON with trip information, creator name, and messages.
+    Returns JSON with trip information, creator name, messages, and whether
+    the requesting user is a member of the trip.
     """
     trip_id = request.args.get('trip_id')
     
@@ -131,6 +128,22 @@ def trip_info():
     creator_profile = trip.profiles[0] if trip.profiles else None
     creator_name = creator_profile.user.name if creator_profile and creator_profile.user else "Unknown"
     
+    # Check if the requesting user is a member of this trip
+    is_member = False
+    user_id = request.cookies.get('user_id')
+    
+    if user_id:
+        try:
+            user_id = int(user_id)
+            # Check if there's a profile for this user in this trip
+            for profile in trip.profiles:
+                if profile.user_id == user_id:
+                    is_member = True
+                    break
+        except ValueError:
+            # Invalid user ID in cookie
+            is_member = False
+    
     # Format messages
     messages = []
     for msg in trip.messages:
@@ -149,10 +162,22 @@ def trip_info():
     # Sort messages by creation time
     messages.sort(key=lambda x: x["created_at"])
     
+    # Get all members of the trip
+    members = []
+    for profile in trip.profiles:
+        if profile.user:
+            members.append({
+                "user_id": profile.user_id,
+                "name": profile.user.name,
+                "profile_id": profile.id
+            })
+    
     return jsonify({
         "trip_name": trip.name,
         "creator_name": creator_name,
-        "messages": messages
+        "messages": messages,
+        "is_member": is_member,
+        "members": members
     })
     
 @trip_bp.route('/my-trips', methods=['GET'])
@@ -287,3 +312,119 @@ def send_message():
         "message_id": new_message.id,
         "status": "Message sent successfully"
     })
+
+@trip_bp.route('/join-trip', methods=['POST'])
+def join_trip():
+    """
+    Join an existing trip by creating a new profile for the user.
+    
+    Expects a JSON payload with:
+    {
+        "trip_id": 1,
+        "questions": [{
+            "question": "Question text",
+            "answer": "Answer text"
+        }, ...],
+        "name": "User Name"  // Optional if user_id cookie is already set
+    }
+    
+    If the user_id cookie is already set, it will use the existing user.
+    Otherwise, it will create a new user and set the cookie.
+    
+    Returns JSON with user_id and profile_id.
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Validate required fields
+    if "trip_id" not in data:
+        return jsonify({"error": "Missing required field: trip_id"}), 400
+    
+    if "questions" not in data:
+        return jsonify({"error": "Missing required field: questions"}), 400
+        
+    try:
+        trip_id = int(data["trip_id"])
+    except ValueError:
+        return jsonify({"error": "Invalid trip ID format"}), 400
+    
+    # Verify the trip exists
+    trip = db_session.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        return jsonify({"error": "Trip not found"}), 404
+    
+    # Check if user already exists via cookie
+    existing_user_id = request.cookies.get('user_id')
+    
+    # Handle user creation/retrieval
+    if existing_user_id:
+        try:
+            # Use existing user if the cookie is set
+            user_id = int(existing_user_id)
+            user = db_session.query(User).filter(User.id == user_id).first()
+            
+            if not user:
+                # If user doesn't exist despite having cookie, create a new user
+                if "name" not in data:
+                    return jsonify({"error": "Name is required for new users"}), 400
+                
+                user = User(name=data["name"])
+                db_session.add(user)
+                db_session.flush()
+                set_cookie = True
+            else:
+                set_cookie = False
+                
+                # Check if user already has a profile for this trip
+                existing_profile = db_session.query(Profile).filter(
+                    Profile.user_id == user.id,
+                    Profile.trip_id == trip_id
+                ).first()
+                
+                if existing_profile:
+                    return jsonify({
+                        "error": "You are already a member of this trip",
+                        "profile_id": existing_profile.id
+                    }), 400
+        except ValueError:
+            # If cookie value is invalid, create a new user
+            if "name" not in data:
+                return jsonify({"error": "Name is required for new users"}), 400
+                
+            user = User(name=data["name"])
+            db_session.add(user)
+            db_session.flush()
+            set_cookie = True
+    else:
+        # Create a new user if no cookie is set
+        if "name" not in data:
+            return jsonify({"error": "Name is required for new users"}), 400
+            
+        user = User(name=data["name"])
+        db_session.add(user)
+        db_session.flush()
+        set_cookie = True
+    
+    # Create a new profile for this trip
+    profile = Profile(
+        questions=data["questions"],
+        trip_id=trip_id,
+        user_id=user.id
+    )
+    db_session.add(profile)
+    db_session.commit()
+    
+    # Create response object
+    response = make_response(jsonify({
+        "trip_id": trip_id,
+        "user_id": user.id,
+        "profile_id": profile.id
+    }))
+    
+    # Set user cookie only if it wasn't already set correctly
+    if set_cookie:
+        response.set_cookie('user_id', str(user.id), httponly=True, secure=True, samesite='Strict')
+    
+    return response

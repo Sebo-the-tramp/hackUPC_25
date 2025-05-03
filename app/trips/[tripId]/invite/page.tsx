@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TinderSwipe from '../../../components/TinderSwipe';
+import { getTripInfo, joinTrip } from '../../../lib/api';
 
 type InvitePageProps = {
   params: {
@@ -10,7 +11,7 @@ type InvitePageProps = {
   };
 };
 
-// Sample onboarding questions (updated last question to integrate airport selection)
+// Onboarding questions
 const ONBOARDING_QUESTIONS = [
   {
     id: 1,
@@ -39,32 +40,61 @@ const ONBOARDING_QUESTIONS = [
   }
 ];
 
+// Airport options for dropdown
+const AIRPORTS = [
+  { code: "JFK", name: "New York (JFK)" },
+  { code: "LAX", name: "Los Angeles (LAX)" },
+  { code: "ORD", name: "Chicago (ORD)" },
+  { code: "LHR", name: "London (LHR)" },
+  { code: "CDG", name: "Paris (CDG)" },
+  { code: "SFO", name: "San Francisco (SFO)" },
+  { code: "BCN", name: "Barcelona (BCN)" },
+  { code: "NRT", name: "Tokyo (NRT)" },
+  { code: "SYD", name: "Sydney (SYD)" },
+  { code: "DXB", name: "Dubai (DXB)" }
+];
+
 const InvitePage: React.FC<InvitePageProps> = ({ params }) => {
   const { tripId } = params;
   const router = useRouter();
   
-  const [step, setStep] = useState<'initial' | 'onboarding' | 'complete'>('initial');
+  const [step, setStep] = useState<'loading' | 'initial' | 'onboarding' | 'airport' | 'complete'>('loading');
   const [name, setName] = useState('');
-  const [trip, setTrip] = useState<any>(null);
+  const [tripData, setTripData] = useState<any>(null);
   const [userAnswers, setUserAnswers] = useState<{ questionId: number; answer: string }[]>([]);
-  const [error, setError] = useState('');
+  const [homeAirport, setHomeAirport] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load trip data from localStorage (in a real app, this would be an API call)
-    const tripData = localStorage.getItem(`trip_${tripId}`);
-    
-    if (tripData) {
+    const fetchTripData = async () => {
       try {
-        const parsedTrip = JSON.parse(tripData);
-        setTrip(parsedTrip);
-      } catch (error) {
-        console.error('Error parsing trip data:', error);
-        setError('Could not load trip information. The trip may not exist.');
+        setLoading(true);
+        const response = await getTripInfo(Number(tripId));
+
+        if (response.error) {
+          setError(response.error);
+        } else {
+          setTripData(response);
+          
+          // If user is already a member, redirect to trip page
+          if (response.is_member === true) {
+            router.push(`/trips/${tripId}`);
+            return;
+          }
+          
+          // Otherwise, show the join form
+          setStep('initial');
+        }
+      } catch (err) {
+        setError("Failed to load trip details. Please try again.");
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setError('Trip not found. Please check the invite link and try again.');
-    }
-  }, [tripId]);
+    };
+
+    fetchTripData();
+  }, [tripId, router]);
 
   const handleJoinTrip = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,44 +104,80 @@ const InvitePage: React.FC<InvitePageProps> = ({ params }) => {
 
   const handleOnboardingComplete = (answers: { questionId: number; answer: string }[]) => {
     setUserAnswers(answers);
-    addMemberToTrip(answers);
+    
+    // Check if the user chose to select airport now
+    const lastAnswer = answers.find(a => a.questionId === 5);
+    if (lastAnswer && lastAnswer.answer === "Select from dropdown") {
+      setStep('airport');
+    } else {
+      // Create trip without airport
+      joinTripRequest(null);
+    }
   };
 
-  const addMemberToTrip = (answers: { questionId: number; answer: string }[]) => {
-    if (!trip) return;
-    
-    // Generate a random member ID
-    const memberId = Math.random().toString(36).substring(2, 10);
-    
-    // Find the airport answer (last question, id 5)
-    const airportAnswer = answers.find(a => a.questionId === 5);
-    const homeAirport = airportAnswer ? airportAnswer.answer : '';
-    
-    // Add the new member to the trip
-    const newMember = {
-      id: memberId,
-      name: name,
-      preferences: null, // This would be set by the LLM in a real implementation
-      homeAirport: homeAirport || null
-    };
-    
-    // TODO LLM: Process user preferences into a one-sentence summary
-    // In a real implementation, this would call the LLM API to generate a preference summary
-    
-    const updatedTrip = {
-      ...trip,
-      members: [...trip.members, newMember]
-    };
-    
-    // Save updated trip to localStorage
-    localStorage.setItem(`trip_${tripId}`, JSON.stringify(updatedTrip));
-    
-    // Set step to complete and redirect after a delay
-    setStep('complete');
-    setTimeout(() => {
-      router.push(`/trips/${tripId}`);
-    }, 3000);
+  const handleAirportSelect = () => {
+    if (homeAirport) {
+      joinTripRequest(homeAirport);
+    }
   };
+
+  const joinTripRequest = async (selectedAirport: string | null) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Format questions and answers for the API
+      const formattedQuestions = userAnswers.map(answer => {
+        const question = ONBOARDING_QUESTIONS.find(q => q.id === answer.questionId);
+        return {
+          question: question ? question.text : `Question ${answer.questionId}`,
+          answer: answer.answer
+        };
+      });
+
+      // Add airport question if provided
+      if (selectedAirport) {
+        formattedQuestions.push({
+          question: "What's your home airport?",
+          answer: selectedAirport
+        });
+      }
+
+      // Call join-trip API
+      const response = await joinTrip({
+        trip_id: Number(tripId),
+        name: name,
+        questions: formattedQuestions
+      });
+
+      if (response.error) {
+        setError(response.error);
+        setLoading(false);
+        return;
+      }
+
+      // Set step to complete and redirect after a delay
+      setStep('complete');
+      setTimeout(() => {
+        router.push(`/trips/${tripId}`);
+      }, 3000);
+    } catch (err) {
+      setError('Failed to join trip. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="flex flex-col items-center">
+          <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-indigo-800 font-medium">Loading trip details...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show error if trip not found
   if (error) {
@@ -131,25 +197,13 @@ const InvitePage: React.FC<InvitePageProps> = ({ params }) => {
     );
   }
 
-  // Show loading while trip is being fetched
-  if (!trip && !error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="flex flex-col items-center">
-          <div className="h-12 w-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-indigo-800 font-medium">Loading trip details...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       {step === 'initial' && (
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-indigo-700 mb-2">Join Trip</h1>
           <p className="text-gray-600 mb-6">
-            You've been invited to join "{trip?.name}"!
+            <span className="font-semibold">{tripData.creator_name}</span> has invited you to join "{tripData.trip_name}"!
           </p>
           
           <form onSubmit={handleJoinTrip}>
@@ -184,6 +238,43 @@ const InvitePage: React.FC<InvitePageProps> = ({ params }) => {
             questions={ONBOARDING_QUESTIONS} 
             onComplete={handleOnboardingComplete}
           />
+        </div>
+      )}
+      
+      {step === 'airport' && (
+        <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
+          <h1 className="text-2xl font-bold text-indigo-700 mb-6">Select Your Home Airport</h1>
+          
+          <div className="mb-4">
+            <label htmlFor="airport" className="block text-sm font-medium text-gray-700 mb-2">
+              Home Airport
+            </label>
+            <select
+              id="airport"
+              value={homeAirport}
+              onChange={(e) => setHomeAirport(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Select an airport</option>
+              {AIRPORTS.map(airport => (
+                <option key={airport.code} value={airport.code}>
+                  {airport.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <button
+            onClick={handleAirportSelect}
+            disabled={!homeAirport}
+            className={`w-full py-3 px-4 ${
+              homeAirport 
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            } font-medium rounded-lg transition duration-200`}
+          >
+            Join Trip
+          </button>
         </div>
       )}
       
