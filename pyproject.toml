@@ -6,9 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "flask>=3.1.0",
+  "flask-cors>=5.0.1",
   "ollama>=0.4.8",
   "openai>=1.77.0",
   "pydantic>=2.9.2",
+  "psycopg2-binary>=2.9.10",
   "qwen-agent[code-interpreter,gui,mcp,rag]>=0.0.21",
   "requests>=2.32.3",
+  "sqlalchemy>=2.0.40",
 ]

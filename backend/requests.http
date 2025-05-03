@@ -1,0 +1,73 @@
+# Health check
+GET http://localhost:5000/health
+Accept: application/json
+
+###
+
+# @name CREATE_TRIP
+# Create a new trip
+POST http://localhost:5000/api/create-trip
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "John Doe",
+  "trip_name": "Barcelona Adventure",
+  "questions": [
+    {
+      "question": "What is your favorite place to visit?",
+      "answer": "Sagrada Familia"
+    },
+    {
+      "question": "How many days are you staying?",
+      "answer": "5"
+    },
+    {
+      "question": "What's your budget for the trip?",
+      "answer": "1000 EUR"
+    }
+  ]
+}
+
+###
+
+# Get trip info
+GET http://localhost:5000/api/trip-info?trip_id={{CREATE_TRIP.response.body.trip_id}}
+Accept: application/json
+
+###
+
+# Get my trips (requires user_id cookie from create-trip)
+GET http://localhost:5000/api/my-trips
+Accept: application/json
+Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
+
+###
+
+# Send a message (requires user_id cookie from create-trip)
+POST http://localhost:5000/api/send-message
+Content-Type: application/json
+Accept: application/json
+Cookie: user_id={{CREATE_TRIP.response.cookies.user_id.value}}
+
+{
+  "trip_id": "{{CREATE_TRIP.response.body.trip_id}}",
+  "content": "Hello everyone! Looking forward to our trip!"
+}
+
+###
+
+# Try to create a trip with missing data (should return an error)
+POST http://localhost:5000/api/create-trip
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Jane Smith",
+  "questions": [
+    {
+      "question": "Preferred transportation?",
+      "answer": "Public transit"
+    }
+  ]
+}
