@@ -9,3 +9,9 @@ class QuestionAnswer(BaseModel):
 
     question: str
     answer: str
+
+
+class LeaveTripRequest(BaseModel):
+    """Request model for leaving a trip."""
+    
+    trip_id: int

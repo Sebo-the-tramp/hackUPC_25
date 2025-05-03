@@ -67,6 +67,7 @@ trips, profiles, and messages.
 3. The API generally uses cookies for authentication, with the `user_id` cookie being set upon creation of a user
 4. In development mode, the database is reset on each application startup unless the PROD environment variable is set
 5. You do not need to test the API changes
+6. Remmeber to use pydantic to validate request inputs
 
 # Frontend Documentation
 

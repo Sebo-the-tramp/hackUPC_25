@@ -125,13 +125,13 @@ export default function Home() {
             <div className="space-y-3">
               {trips.map((trip) => (
                 <div
-                  key={trip.trip_id}
+                  key={trip.id}
                   className="p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition cursor-pointer"
-                  onClick={() => router.push(`/trips/${trip.trip_id}`)}
+                  onClick={() => router.push(`/trips/${trip.id}`)}
                 >
-                  <h2 className="font-bold text-xl text-indigo-700">{trip.trip_name}</h2>
+                  <h2 className="font-bold text-xl text-indigo-700">{trip.name}</h2>
                   <p className="text-sm text-gray-600">
-                    Created by: <b>{trip.creator_name}</b>
+                    Members: <b>{trip.users.map((u) => u.name).join(", ")}</b>
                   </p>
                 </div>
               ))}

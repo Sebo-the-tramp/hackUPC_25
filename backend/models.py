@@ -4,14 +4,18 @@ from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Boolean, DateT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from dataclasses import dataclass
 
 Base = declarative_base()
 
 
+@dataclass
 class User(Base):
     """User model representing a person with a name who can have multiple profiles."""
 
     __tablename__ = "users"
+    id: int
+    name: str
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -25,6 +29,7 @@ class User(Base):
         return f"<User(id={self.id}, name='{self.name}')>"
 
 
+@dataclass
 class Trip(Base):
     """Trip model representing a trip with unique identifier."""
 
@@ -43,10 +48,21 @@ class Trip(Base):
         "Message", back_populates="trip", cascade="all, delete-orphan"
     )
 
+    # Define many-to-many relationship with User through Profile
+    users = relationship(
+        "User",
+        secondary="profiles",
+        viewonly=True,  # This is a read-only relationship
+        primaryjoin="Trip.id == Profile.trip_id",
+        secondaryjoin="and_(User.id == Profile.user_id, Profile.deleted == False)",
+        backref="trips",  # This adds a 'trips' attribute to the User model
+    )
+
     def __repr__(self):
         return f"<Trip(id={self.id}, name='{self.name}')>"
 
 
+@dataclass
 class Profile(Base):
     """Profile model representing a user's profile for a specific trip with questions/answers."""
 
@@ -74,11 +90,10 @@ class Profile(Base):
     )
 
     def __repr__(self):
-        return (
-            f"<Profile(id={self.id}, user_id={self.user_id}, trip_id={self.trip_id}, deleted={self.deleted})>"
-        )
+        return f"<Profile(id={self.id}, user_id={self.user_id}, trip_id={self.trip_id}, deleted={self.deleted})>"
 
 
+@dataclass
 class Message(Base):
     """Message model representing a message in a trip."""
 
@@ -104,4 +119,3 @@ class Message(Base):
     def __repr__(self):
         sender = f"AI" if self.is_ai else f"Profile {self.profile_id}"
         return f"<Message(id={self.id}, sender={sender}, trip_id={self.trip_id})>"
-
