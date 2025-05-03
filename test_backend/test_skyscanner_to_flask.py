@@ -3,7 +3,7 @@ import time
 import json
 
 # ===== CONFIG =====
-API_KEY = "sh969210162413250384813708759185"
+API_KEY = ""
 FLASK_URL = "http://localhost:5000/api/filter-itineraries"
 
 # ===== STEP 1: CREATE SEARCH SESSION =====
