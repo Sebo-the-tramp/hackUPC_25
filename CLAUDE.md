@@ -21,15 +21,20 @@ trips, profiles, and messages.
 
 ## Backend Files
 
-| File            | Purpose                                                                                                                                                                                      |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `__init__.py`   | Package initialization file making the `backend` directory a Python package.                                                                                                                 |
-| `app.py`        | Main Flask application entry point responsible for creating and configuring the Flask app, registering blueprints, initializing the database, and setting up CORS.                           |
-| `db.py`         | Database configuration and initialization. Sets up the SQLAlchemy engine, session factory, and provides functions for initializing and shutting down the database.                           |
-| `models.py`     | SQLAlchemy models defining the database schema: User, Trip, Profile, and Message models with their relationships.                                                                            |
-| `README.md`     | Comprehensive documentation of backend architecture, database models, and API endpoints. Contains detailed descriptions of each model, their relationships, and API endpoint specifications. |
-| `requests.http` | Collection of sample HTTP requests for testing the API endpoints manually.                                                                                                                   |
-| `routes.py`     | API routes for the application, implementing endpoints for trip creation, trip information, user's trips, sending messages, and joining trips.                                               |
+| File                  | Purpose                                                                                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `__init__.py`         | Package initialization file making the `backend` directory a Python package.                                                                                                                 |
+| `app.py`              | Main Flask application entry point responsible for creating and configuring the Flask app, registering blueprints, initializing the database, and setting up CORS.                           |
+| `db.py`               | Database configuration and initialization. Sets up the SQLAlchemy engine, session factory, and provides functions for initializing and shutting down the database.                           |
+| `models.py`           | SQLAlchemy models defining the database schema: User, Trip, Profile, and Message models with their relationships.                                                                            |
+| `README.md`           | Comprehensive documentation of backend architecture, database models, and API endpoints. Contains detailed descriptions of each model, their relationships, and API endpoint specifications. |
+| `requests.http`       | Collection of sample HTTP requests for testing the API endpoints manually.                                                                                                                   |
+| `routes/`             | Directory containing modular route files for the application.                                                                                                                               |
+| `routes/__init__.py`  | Package initialization file that imports and registers all route blueprints from the routes package.                                                                                         |
+| `routes/models.py`    | Common Pydantic models shared across route files.                                                                                                                                           |
+| `routes/trip.py`      | Trip-related routes including create-trip, trip-info, and join-trip endpoints.                                                                                                              |
+| `routes/user.py`      | User-related routes including my-trips endpoint.                                                                                                                                             |
+| `routes/message.py`   | Message-related routes including send-message endpoint.                                                                                                                                      |
 
 ## Key Components
 
@@ -61,6 +66,7 @@ trips, profiles, and messages.
    response
 3. The API generally uses cookies for authentication, with the `user_id` cookie being set upon creation of a user
 4. In development mode, the database is reset on each application startup unless the PROD environment variable is set
+5. You do not need to test the API changes
 
 # Frontend Documentation
 
@@ -145,3 +151,4 @@ Each method handles error states and includes credentials with requests to maint
 4. Some components like TripMap use dynamic imports to handle client-side rendering requirements
 5. When adding new features, ensure they work on both mobile and desktop viewports
 
+- IMPORTANT: UPDATE CLAUDE.md ALWAYS WHEN CREATING, MOVING OR DELETING FILES

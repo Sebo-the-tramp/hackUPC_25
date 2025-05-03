@@ -4,7 +4,7 @@ from flask_cors import CORS
 from pydantic import ValidationError
 
 from backend.db import init_db, shutdown_session
-from backend.routes import trip_bp
+from backend.routes import blueprints
 
 def create_app():
     """Create and configure the Flask application."""
@@ -13,8 +13,9 @@ def create_app():
     # Enable CORS
     CORS(app, supports_credentials=True)
     
-    # Register blueprints
-    app.register_blueprint(trip_bp)
+    # Register all blueprints from the routes package
+    for blueprint in blueprints:
+        app.register_blueprint(blueprint)
     
     # Initialize database
     with app.app_context():

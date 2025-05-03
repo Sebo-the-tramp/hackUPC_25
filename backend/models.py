@@ -55,6 +55,8 @@ class Profile(Base):
     id = Column(Integer, primary_key=True)
     # Store questions and answers as JSON
     questions = Column(JSON, nullable=False)
+    # Flag to mark profile as deleted (soft delete)
+    deleted = Column(Boolean, default=False, nullable=False)
 
     # Foreign key to establish relationship with Trip
     trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
@@ -73,7 +75,7 @@ class Profile(Base):
 
     def __repr__(self):
         return (
-            f"<Profile(id={self.id}, user_id={self.user_id}, trip_id={self.trip_id})>"
+            f"<Profile(id={self.id}, user_id={self.user_id}, trip_id={self.trip_id}, deleted={self.deleted})>"
         )
 
 
