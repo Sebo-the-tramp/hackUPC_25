@@ -150,7 +150,7 @@ const TripPage: React.FC<TripPageProps> = ({ params }) => {
           </div>
 
           {/* Bottom right: Map */}
-          <div className="bg-white rounded-lg shadow-md h-[calc(100vh-24rem)] md:h-auto">
+          <div className="z-0 bg-white rounded-lg shadow-md h-[calc(100vh-24rem)] md:h-auto">
             <TripMap
               members={[trip.creator, ...trip.members].filter(
                 (member) => !!member.homeAirport
