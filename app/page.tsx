@@ -3,12 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getMyTrips, createTrip } from "./lib/api";
+import TripLeaveButton from "../app/components/TripLeaveButton";
+
+
+type User = {
+  name: string;
+};
 
 type Trip = {
   id: number;
   name: string;
   creator: string;
+  users: User[];
 };
+
 
 export default function Home() {
   const router = useRouter();
@@ -126,15 +134,23 @@ export default function Home() {
             <div className="space-y-3">
               {trips.map((trip) => (
                 <div
-                  key={trip.id}
-                  className="p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition cursor-pointer"
-                  onClick={() => router.push(`/trips/${trip.id}`)}
-                >
-                  <h2 className="font-bold text-xl text-indigo-700">{trip.name}</h2>
-                  <p className="text-sm text-gray-600">
-                    Members: <b>{trip.users.map((u) => u.name).join(", ")}</b>
-                  </p>
+                key={trip.id}
+                className="relative p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition cursor-pointer"
+                onClick={() => router.push(`/trips/${trip.id}`)}
+              >
+                <h2 className="font-bold text-xl text-indigo-700">{trip.name}</h2>
+                <p className="text-sm text-gray-600">
+                  Members: <b>{trip.users.map((u) => u.name).join(", ")}</b>
+                </p>
+                <div className = "absolute top-0 right-0"> <TripLeaveButton
+                  tripId={trip.id}
+                  onTripLeft={(leftTripId) =>
+                    setTrips((prev) => prev.filter((t) => t.id !== leftTripId))
+                  }
+                />
                 </div>
+              </div>
+                 
               ))}
             </div>
           ) : (
