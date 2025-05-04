@@ -15,7 +15,7 @@ from backend.ai import get_ai_message
 message_bp = Blueprint("message", __name__, url_prefix="/api")
 
 
-def process_ai_response(trip_id, message_id, user_data):
+def process_ai_response(trip_id, message_id):
     """Background task to process AI response and add to conversation.
     
     Args:
@@ -66,7 +66,7 @@ def process_ai_response(trip_id, message_id, user_data):
         #user_data["nearest_airport"] = []
         # Get AI response with streaming enabled
         ai_response = get_ai_message(
-            user_data, 
+            [p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles],
             formatted_messages,
             socketio=socketio,
             trip_id=trip_id

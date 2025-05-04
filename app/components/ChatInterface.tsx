@@ -57,7 +57,7 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
     // Listen for new messages
     socket.on("new_message", (data) => {
       console.log("Received new message:", data);
-      
+
       // Create the message object from the WebSocket data
       const newMessage: Message = {
         id: data.message_id.toString(),
@@ -73,21 +73,23 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
       // This prevents duplicate messages from appearing when the current user sends a message
       setMessages((prev) => {
         // Check if this message already exists in our state (avoid duplicates)
-        const messageExists = prev.some(msg => msg.id === newMessage.id);
-        
+        const messageExists = prev.some((msg) => msg.id === newMessage.id);
+
         // If it's an AI message or a message from another user that we haven't seen before
         // Here we explicitly check sender_id to make sure it's not from our own user
-        const messageFromOtherUser = data.sender_id && 
-                                     prev.findIndex(msg => 
-                                       msg.text === data.content && 
-                                       msg.sender === "user" && 
-                                       Math.abs(new Date(msg.timestamp).getTime() - new Date(data.created_at).getTime()) < 5000
-                                     ) === -1;
-                                     
+        const messageFromOtherUser =
+          data.sender_id &&
+          prev.findIndex(
+            (msg) =>
+              msg.text === data.content &&
+              msg.sender === "user" &&
+              Math.abs(new Date(msg.timestamp).getTime() - new Date(data.created_at).getTime()) < 5000,
+          ) === -1;
+
         if ((data.is_ai || messageFromOtherUser) && !messageExists) {
           return [...prev, newMessage];
         }
-        
+
         // Otherwise, don't add the message (we already added it when the user sent it)
         return prev;
       });
@@ -174,7 +176,7 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
 
     // Only add the user message to the local state
     // WebSocket will handle receiving both user and AI messages
-    setMessages((prev) => [...prev, userMessage]);
+    //setMessages((prev) => [...prev, userMessage]);
     const currentInput = input;
     setInput("");
     setIsLoading(true);
@@ -233,18 +235,18 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
                       // Add custom rendering for think sections
                       p: ({ node, children, ...props }) => {
                         const textContent = node?.children?.[0]?.value || "";
-                        
+
                         // Check if this is a think section opening tag
                         if (textContent.trim().startsWith("<think>")) {
                           const [_, ...rest] = children as React.ReactNode[];
                           const thinkContent = rest.length > 0 ? rest : "Thinking...";
-                          
+
                           // Use state to track if this section is expanded
                           const [isExpanded, setIsExpanded] = useState(false);
-                          
+
                           return (
                             <div className="my-2 border border-gray-200 rounded-md">
-                              <button 
+                              <button
                                 onClick={() => setIsExpanded(!isExpanded)}
                                 className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-t-md"
                               >
@@ -252,22 +254,20 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
                                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                               </button>
                               {isExpanded && (
-                                <div className="p-3 text-gray-600 text-sm bg-gray-50 rounded-b-md">
-                                  {thinkContent}
-                                </div>
+                                <div className="p-3 text-gray-600 text-sm bg-gray-50 rounded-b-md">{thinkContent}</div>
                               )}
                             </div>
                           );
                         }
-                        
+
                         // Check if this is a think section closing tag
                         if (textContent.trim() === "</think>") {
                           return null;
                         }
-                        
+
                         // Regular paragraph
                         return <p {...props}>{children}</p>;
-                      }
+                      },
                     }}
                   >
                     {message.text}
@@ -304,18 +304,18 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
             </div>
           </div>
         )}
-        
+
         {/* Loading spinner for when AI message is still generating but streaming has started */}
-        {messages.length > 0 && 
-         messages[messages.length - 1].sender === "llm" && 
-         messages[messages.length - 1].text.endsWith("...") && (
-          <div className="flex justify-start mt-1 ml-3">
-            <div className="flex items-center space-x-1">
-              <div className="h-3 w-3 border-t-2 border-r-2 border-indigo-500 rounded-full animate-spin"></div>
-              <span className="text-xs text-gray-500">AI is thinking...</span>
+        {messages.length > 0 &&
+          messages[messages.length - 1].sender === "llm" &&
+          messages[messages.length - 1].text.endsWith("...") && (
+            <div className="flex justify-start mt-1 ml-3">
+              <div className="flex items-center space-x-1">
+                <div className="h-3 w-3 border-t-2 border-r-2 border-indigo-500 rounded-full animate-spin"></div>
+                <span className="text-xs text-gray-500">AI is thinking...</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <div ref={messagesEndRef}></div>
       </div>
