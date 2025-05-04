@@ -69,6 +69,7 @@ def process_ai_response(trip_id, message_id):
         
         # Process user data to extract airport information
         for user_profile in user_data:
+            user_profile["name"] = user_profile["user"]["name"]
             # Initialize an empty list for airports
             if 'nearest_airport' not in user_profile:
                 user_profile['nearest_airport'] = []
@@ -84,7 +85,7 @@ def process_ai_response(trip_id, message_id):
                             airport_code = question.get('answer')
                             if airport_code and len(airport_code.strip()) > 0:
                                 # Add to nearest airport if it's not empty
-                                user_profile['nearest_airport'].append(airport_code.strip())
+                                user_profile['nearest_airport'].append(airport_code.strip()[1:])
         
         # Get AI response with streaming enabled
         ai_response = get_ai_message(

@@ -148,7 +148,7 @@ def make_bot(users):
             triplet_overlap_options = user_share_flight(raw_user_list, users)
             
             return triplet_overlap_options
-    system_instruction = '''
+    system_instruction = f'''
     You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
     When the user requests travel advice or suggestions:
     - DO NOT ANSWER WHEN THE CONVERSATION IS TOO VAGUE and not clear.
@@ -157,7 +157,7 @@ def make_bot(users):
     - Then ask the user for their preferences on the available options.
     - Given the answer, use the create_trip function FOR EACH USER TO GET THE FLIGHT PRICE.
 
-    Current year is 2025.
+    Today's date is {datetime.now().strftime('%Y-%m-%d')}.
 
     User details:
     ''' + json5.dumps(users, ensure_ascii=False, indent=0)

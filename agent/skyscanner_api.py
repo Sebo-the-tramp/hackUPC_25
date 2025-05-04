@@ -127,7 +127,11 @@ def create_flight_search(departure_iata, arrival_iata, start_date, end_date=None
     response = requests.post(url, json=payload, headers=headers)
     res_dict = response.json()
 
-    itineraries = res_dict['content']['results']['itineraries']
+    try:
+        itineraries = res_dict['content']['results']['itineraries']
+    except KeyError:
+        print(res_dict)
+        raise
 
     filtered_itineraries = []
 
@@ -254,7 +258,11 @@ def get_flight_from_airport(airport_iata_from, start_date, end_date=None, adults
     print(response.json())
     res_dict = response.json()
 
-    quotes = res_dict['content']['results']['quotes']
+    try:
+        quotes = res_dict['content']['results']['quotes']
+    except KeyError:
+        print(res_dict)
+        raise
     places = res_dict['content']['results']['places']
 
     print("SI")
