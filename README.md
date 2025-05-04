@@ -1,54 +1,87 @@
-# HackUPC 2025 Project - FlightMeet
+# HackUPC 2025 -- Travelero Tralala
+By Sebastian, Miika, Karolina
 
-🌍 **Travelero Tralala - Your Smart Group Travel Planner!**
+## Pitch 💡
+Travelero integrates **Skyscanner API data, Tinder-inspired preference-based matching, and AI assistance via a custom agent** to solve the complex problem of finding **optimal meeting points for international friend groups**. Our Flask backend processes flight availability data through custom algorithms that minimize group travel costs, while our Next.js frontend provides an intuitive interface for preference collection and real-time collaborative trip planning with embedded AI assistance.
 
-## Overview
-FlightMeet is an innovative travel planning platform developed during HackHPC 2025 that revolutionizes how groups plan their meetups. Our solution combines advanced flight search algorithms with group optimization to make travel planning smarter and more cost-effective.
+## What makes our project unique? 🏆
+Our project is different from the other Skyscanner Challenge submissions in many ways:
+- **Custom Qwen Agent Integration** -- Our implementation integrates the Qwen large language model agent through a custom Flask endpoint (`backend/ai.py`), enabling intelligent travel recommendations. Within a trip group, each user's travel preferences, stored as JSON in our PostgreSQL database via SQLAlchemy ORM models (`backend/models.py`), are passed to the Qwen agent for context-aware responses. The agent uses this information to generate personalized recommendations, answering questions about destinations and activities while considering all group members' preferences simultaneously. <br>
+For a demonstration of the standalone Qwen agent via Gradio, see this video: [https://youtu.be/HtR5K8Tt8zI](https://youtu.be/HtR5K8Tt8zI)
+- **Advanced Qwen Algorithm** -- We created a custom flight optimization engine (`gradiotest/skyscanner_api.py`) that queries the Skyscanner API with the specific date ranges and origin airports of all group members. Our algorithm (`find_top_k_full_paths` function) computes a comprehensive cost matrix, identifying destinations that minimize the sum of travel costs across all participants. The system intelligently handles multi-leg journeys and self-transfer flights, significantly expanding the range of possible meeting points. 
+- **Preference Collection with React-Based Tinder Interface** --
+- **Real-Time Collaborative Architecture** -- Our system enables multiple users to interact simultaneously -- like Google Docs! The backend (`backend/app.py`) serves as an intermediary, storing all messages in the PostgreSQL database and retrieving them with eager loading via SQLAlchemy to minimize database queries. The chat interface (`app/components/ChatInterface.tsx`) connects to our custom /api/chat endpoint which forwards messages to the Qwen agent, maintains context across the conversation, and broadcasts responses to all connected clients. 
 
-## 🎯 Features
-- **Enhanced Self-Transfer Flight Search**: Find cheaper routes with stopover options, similar to Kiwi.com's flight hacking
-- **Smart Stopover Planning**: Option to stay overnight in gateway cities to break up long journeys
-- **Group Meetup Optimizer**: Find the most cost-effective meeting point for groups
-- **Collaborative Planning Interface**: Google Docs-like interface for group travel planning
+## The Basic User Flow 👇
+![](https://i.imgur.com/NwHbxMV.png)
+1. Users access the login page. We use cookies to authenticate, so no login is necessary!
+--> The user chooses whether they want to view an existing trip (if one exists) or make a new trip
+2.  Upon clicking "Create Trip", the user undergoes the "Tinder-like" selection system, where the system gathers information including the origin airport, passport, and travel preferences of the user.
+![](https://i.imgur.com/6f2I01A.png)
+3. The dashboard loads. From here, the user can access a custom AI agent chat that takes into account the preferences of all users. 
+![g0Gu7LK.png (1356×870)](https://i.imgur.com/g0Gu7LK.png)
+--> The user can invite new friends to the trip with a link, and they will all be able to collaboratively chat with the interface. Any new friend will be prompted to complete the "Tinder-inspired" onboarding upon clicking the link so that their preferences can be collected.
 
-## 🛠️ Tech Stack
-- **Frontend**: HTML/CSS/JavaScript, Bootstrap/Tailwind CSS, Leaflet.js
-- **Backend**: Flask (Python), Jinja2 templating
-- **APIs**: Kiwi API, Skyscanner API
-- **Database**: SQLite
-- **Algorithms**: NetworkX for route optimization
+## How we built it
+Frontend: Next.js 14, React, Tailwind CSS
+UI Components: Custom React components with Lucide icons
+Backend: Flask for API endpoints and server logic
+Database: PostgreSQL with SQLAlchemy ORM
+Authentication: JWT-based auth with HTTP-only cookies
+
+## Challenges
+- API Integration: Synchronizing OpenAI API calls with our Flask backend required careful error handling and rate limiting
+- Real-time Chat: Implementing scrollable chat interface with proper state management proved technically challenging
+- Database Schema: Designing flexible schema to accommodate varied trip details and user preferences required multiple iterations
+- Authentication Flow: Balancing security with user experience when implementing JWT authentication
+
+## What's next for Travelero
+- Offline Mode: Implementing data caching for limited functionality without internet connection
+- Multi-language Support: Expanding AI capabilities to handle queries in multiple languages
+- Trip Sharing: Adding collaborative features for group trip planning with shared access controls
+- Custom Recommendations: Enhancing AI model with fine-tuning based on user feedback and preferences
+- Integration: Connecting with third-party booking APIs to enable direct reservations within the platform
+
 
 ## 🚀 Getting Started
-
 ### Prerequisites
-- Python 3.12+
-- pip/conda package manager
-- Modern web browser
 
-### Installation
+This project requires the following Python packages:
+
+```
+flask>=3.1.0
+flask-cors>=5.0.1
+ollama>=0.4.8
+openai>=1.77.0
+pydantic>=2.9.2
+psycopg2-binary>=2.9.10
+qwen-agent[code-interpreter,gui,mcp,rag]>=0.0.21
+requests>=2.32.3
+sqlalchemy>=2.0.40
+sqlalchemy-serializer>=1.4.12
+```
+
+You can install all prerequisites by running:
+
 ```bash
-# Create and activate virtual environment
-conda create -n hackupc python==3.12
-conda activate hackupc
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Run the project
-python main.py
 ```
 
-## 📁 Project Structure
-```
-project/
-├── frontend/          # Frontend templates and static files
-├── backend/          # Flask application and routes
-├── algorithms/       # Optimization algorithms
-├── database/         # Database models and migrations
-└── tests/            # Test suite
+Next, set your environment variables:
+```bash
+set LLM_URL=$yoururl
+set DATABASE_URL=$postgresurl
 ```
 
-## 🤝 Team
+And run the project:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+
+<!-- ## 🤝 Team
 
 ### 🧑‍💻 Sebastian Cavada
 **Role**: Backend Developer & Algorithm Specialist
@@ -72,28 +105,12 @@ project/
 **Role**: UX/UI Designer
 **Focus**: Creating beautiful and functional interfaces
 **Goal**: Make travel planning as enjoyable as the trip itself
-**Fun Fact**: Designs travel itineraries as a hobby
+**Fun Fact**: Designs travel itineraries as a hobby -->
 
 ## 📝 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-- HackHPC 2025 organizers and mentors
-- Kiwi.com and Skyscanner for their APIs
-- The open-source community for their amazing tools
 
 ---
 
-Made with ❤️ at HackHPC 2025 
-
-
---- test
-
-- revolut challenge
-- vuoling cool
-- jetbrains
-
-` bash
-conda create -n hackupc python==3.12
-
-`
+Made with ❤️ at HackUPC 2025 
