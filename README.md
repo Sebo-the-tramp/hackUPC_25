@@ -1,6 +1,6 @@
 # HackUPC 2025 Project - FlightMeet
 
-🚀 **Welcome to FlightMeet - Your Smart Group Travel Planner!**
+🌍 **Travelero Tralala - Your Smart Group Travel Planner!**
 
 ## Overview
 FlightMeet is an innovative travel planning platform developed during HackHPC 2025 that revolutionizes how groups plan their meetups. Our solution combines advanced flight search algorithms with group optimization to make travel planning smarter and more cost-effective.

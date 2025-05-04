@@ -81,7 +81,7 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="flex flex-col bg-white rounded-lg shadow-md overflow-y-auto h-[700px]">
       <div className="p-3 bg-indigo-600 text-white">
         <h3 className="font-medium">Trip Assistant</h3>
       </div>
