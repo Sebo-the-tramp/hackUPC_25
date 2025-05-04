@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, ChevronDown, ChevronRight } from "lucide-react";
 import { sendMessage } from "../lib/api";
 import { io, Socket } from "socket.io-client";
@@ -57,6 +57,8 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
     // Listen for new messages
     socket.on("new_message", (data) => {
       console.log("Received new message:", data);
+      
+      // Create the message object from the WebSocket data
       const newMessage: Message = {
         id: data.message_id.toString(),
         sender: data.is_ai ? "llm" : "user",
@@ -65,7 +67,30 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
         senderName: data.sender?.name,
       };
 
-      setMessages((prev) => [...prev, newMessage]);
+      // Add the message to our state, but only if:
+      // 1. It's from the AI, or
+      // 2. It's from another user (not the current user)
+      // This prevents duplicate messages from appearing when the current user sends a message
+      setMessages((prev) => {
+        // Check if this message already exists in our state (avoid duplicates)
+        const messageExists = prev.some(msg => msg.id === newMessage.id);
+        
+        // If it's an AI message or a message from another user that we haven't seen before
+        // Here we explicitly check sender_id to make sure it's not from our own user
+        const messageFromOtherUser = data.sender_id && 
+                                     prev.findIndex(msg => 
+                                       msg.text === data.content && 
+                                       msg.sender === "user" && 
+                                       Math.abs(new Date(msg.timestamp).getTime() - new Date(data.created_at).getTime()) < 5000
+                                     ) === -1;
+                                     
+        if ((data.is_ai || messageFromOtherUser) && !messageExists) {
+          return [...prev, newMessage];
+        }
+        
+        // Otherwise, don't add the message (we already added it when the user sent it)
+        return prev;
+      });
     });
 
     // Listen for streaming message updates
@@ -140,10 +165,11 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
     setError(null);
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // We'll use a temporary ID until we get the real one from the server
       sender: "user",
       text: input,
       timestamp: new Date(),
+      senderName: "You", // Add "You" as the sender name for the local user's messages
     };
 
     // Only add the user message to the local state

@@ -15,7 +15,7 @@ from backend.ai import get_ai_message
 message_bp = Blueprint("message", __name__, url_prefix="/api")
 
 
-def process_ai_response(trip_id, message_id):
+def process_ai_response(trip_id, message_id, user_data):
     """Background task to process AI response and add to conversation.
     
     Args:
@@ -63,10 +63,10 @@ def process_ai_response(trip_id, message_id):
         # Get socketio instance - we're now running inside an app context thanks to the wrapper
         from flask import current_app
         socketio = current_app.extensions['socketio']
-        
+        #user_data["nearest_airport"] = []
         # Get AI response with streaming enabled
         ai_response = get_ai_message(
-            [p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles], 
+            user_data, 
             formatted_messages,
             socketio=socketio,
             trip_id=trip_id
@@ -152,7 +152,7 @@ def send_message():
         db_session.add(new_message)
         db_session.commit()
         
-        # Emit the message via WebSocket
+        # Emit the message via WebSocket, with a sender_id field for identifying who sent it
         message_data = {
             "message_id": new_message.id,
             "trip_id": validated_data.trip_id,
@@ -161,12 +161,16 @@ def send_message():
                 "id": user_id,
                 "name": profile.user.name if profile.user else "Unknown"
             },
+            "sender_id": user_id,  # Add explicit sender_id for client-side filtering
             "created_at": new_message.created_at.isoformat() if hasattr(new_message.created_at, 'isoformat') else str(new_message.created_at),
             "is_ai": False
         }
         # Get socketio instance from current app
         socketio = current_app.extensions['socketio']
-        socketio.emit('new_message', message_data, room=f'trip_{validated_data.trip_id}')
+        
+        # Include the sender's socket ID when emitting to allow clients to filter out their own messages
+        request_sid = request.sid if hasattr(request, 'sid') else None
+        socketio.emit('new_message', message_data, room=f'trip_{validated_data.trip_id}', skip_sid=request_sid)
         
         # Get app context for background thread
         app_context = current_app._get_current_object()

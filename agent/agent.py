@@ -63,7 +63,11 @@ def make_bot(users):
 
             options_user = []
             for user in selected_users:
-                departure_iata = user['nearest_airport'][0] # Using the first airport's IATA code
+                if "nearest_airport" in user and len(user['nearest_airport']) > 0:
+                    # Use the first airport's IATA code
+                    departure_iata = user['nearest_airport'][0]
+                else:
+                    departure_iata = "HEL"
                 options = create_flight_search(departure_iata, arrival_iata, outbound_date, inbound_date)
                 options_user.append({"name": user['name'], "options": options})
                 # print(options)
