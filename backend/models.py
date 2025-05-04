@@ -1,121 +1,123 @@
 """SQLAlchemy models for the application."""
 
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Boolean, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+from sqlalchemy import String, ForeignKey, JSON, Boolean, DateTime, Integer, inspect
+from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
-from dataclasses import dataclass
+from sqlalchemy_serializer import SerializerMixin
 
-Base = declarative_base()
+class Base(DeclarativeBase, SerializerMixin):
+    """Base class for all models with advanced serialization control."""
+    pass
+    
 
-
-@dataclass
 class User(Base):
+    serialize_only = ("id",)
     """User model representing a person with a name who can have multiple profiles."""
 
     __tablename__ = "users"
-    id: int
-    name: str
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, )
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Define relationship with Profile model (one-to-many)
-    profiles = relationship(
-        "Profile", back_populates="user", cascade="all, delete-orphan"
+    profiles: Mapped[List["Profile"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", 
+    )
+    
+    trips: Mapped[List["Trip"]] = relationship(
+        "Trip",
+        secondary="profiles",
+        primaryjoin="User.id == Profile.user_id",
+        secondaryjoin="and_(Trip.id == Profile.trip_id, Profile.deleted == False)",
+        viewonly=True,
+        
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<User(id={self.id}, name='{self.name}')>"
 
 
-@dataclass
 class Trip(Base):
     """Trip model representing a trip with unique identifier."""
 
     __tablename__ = "trips"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, )
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Define relationship with Profile model (one-to-many)
-    profiles = relationship(
-        "Profile", back_populates="trip", cascade="all, delete-orphan"
+    profiles: Mapped[List["Profile"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", 
     )
 
-    # Define relationship with Message model (one-to-many)
-    messages = relationship(
-        "Message", back_populates="trip", cascade="all, delete-orphan"
+    messages: Mapped[List["Message"]] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", 
     )
 
-    # Define many-to-many relationship with User through Profile
-    users = relationship(
+    users: Mapped[List["User"]] = relationship(
         "User",
         secondary="profiles",
-        viewonly=True,  # This is a read-only relationship
+        viewonly=True,
         primaryjoin="Trip.id == Profile.trip_id",
         secondaryjoin="and_(User.id == Profile.user_id, Profile.deleted == False)",
-        backref="trips",  # This adds a 'trips' attribute to the User model
+        
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Trip(id={self.id}, name='{self.name}')>"
 
 
-@dataclass
 class Profile(Base):
     """Profile model representing a user's profile for a specific trip with questions/answers."""
 
     __tablename__ = "profiles"
 
-    id = Column(Integer, primary_key=True)
-    # Store questions and answers as JSON
-    questions = Column(JSON, nullable=False)
-    # Flag to mark profile as deleted (soft delete)
-    deleted = Column(Boolean, default=False, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, )
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    questions: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # Foreign key to establish relationship with Trip
-    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
-    # Relationship with Trip model
-    trip = relationship("Trip", back_populates="profiles")
+    trip: Mapped["Trip"] = relationship(back_populates="profiles", )
+    user: Mapped["User"] = relationship(back_populates="profiles", )
 
-    # Foreign key to establish relationship with User
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    # Relationship with User model
-    user = relationship("User", back_populates="profiles")
-
-    # Define relationship with Message model (one-to-many)
-    messages = relationship(
-        "Message", back_populates="profile", cascade="all, delete-orphan"
+    messages: Mapped[List["Message"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan", 
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Profile(id={self.id}, user_id={self.user_id}, trip_id={self.trip_id}, deleted={self.deleted})>"
 
 
-@dataclass
 class Message(Base):
     """Message model representing a message in a trip."""
 
     __tablename__ = "messages"
 
-    id = Column(Integer, primary_key=True)
-    content = Column(String, nullable=False)
-    is_ai = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=func.now(), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, )
+    trip_id: Mapped[int] = mapped_column(ForeignKey("trips.id"), nullable=False)
+    profile_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("profiles.id"), nullable=True
+    )
+    content: Mapped[str] = mapped_column(String, nullable=False)
+    is_ai: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False
+    )
+    
+    trip: Mapped["Trip"] = relationship(back_populates="messages", )
+    profile: Mapped[Optional["Profile"]] = relationship(back_populates="messages", )
 
-    # Foreign key to establish relationship with Trip
-    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False)
-    # Relationship with Trip model
-    trip = relationship("Trip", back_populates="messages")
+    user: Mapped[Optional["User"]] = relationship(
+        "User",
+        secondary="profiles",
+        viewonly=True,
+        uselist=False,
+        primaryjoin="Message.profile_id == Profile.id",
+        secondaryjoin="Profile.user_id == User.id",
+        
+    )
 
-    # Foreign key to establish relationship with Profile (sender)
-    profile_id = Column(
-        Integer, ForeignKey("profiles.id"), nullable=True
-    )  # Nullable for AI messages
-    # Relationship with Profile model
-    profile = relationship("Profile", back_populates="messages")
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         sender = f"AI" if self.is_ai else f"Profile {self.profile_id}"
         return f"<Message(id={self.id}, sender={sender}, trip_id={self.trip_id})>"

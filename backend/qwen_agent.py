@@ -1,13 +1,11 @@
-import pprint
-import urllib.parse
+import os
 import json5
 from qwen_agent.agents import Assistant
 from qwen_agent.tools.base import BaseTool, register_tool
 from qwen_agent.utils.output_beautify import typewriter_print
 from datetime import datetime
-import gradio as gr
 
-from skyscanner_api import create_flight_search, get_flight_from_airport, find_top_k_full_paths
+from backend.skyscanner_api import create_flight_search, get_flight_from_airport, find_top_k_full_paths
 
 # Add chat history storage
 chat_history = []
@@ -189,12 +187,14 @@ class FindSharedFlight(BaseTool):
         return json5.dumps({
             "options": formatted_options
         }, ensure_ascii=False)
-    
+   
+model_server = os.environ.get('LLM_URL', "enter LLM_URL")
+print("model_server: ", model_server)
 # Step 2: Configure the LLM you are using.
 llm_cfg = {
     # Use the model service provided by DashScope:
     'model': 'qwen3:32b',
-    'model_server': 'http://10.127.30.123:11434/v1',
+    'model_server': model_server,
     'generate_cfg': {
         'temperature': 0,
         'top_k': 1
@@ -236,29 +236,38 @@ llm_cfg = {
 # User details:
 # ''' + json5.dumps(users, ensure_ascii=False, indent=0)
 
-system_instruction = '''
-You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
-When the user requests travel advice or suggestions:
-- First you need to use the function find_shared_flight to find the cheapest flight for the users.
-- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 options.
-- Then you need to propose the flights to the users using the create_trip function for each user.
-- Get the users preferences and evaluate if the proposed flights are suitable.
-- If the user likes the flight, you need to call the function create_trip to get the price of the flight.
-Current year is 2025.
-
-User details:
-''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
 tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
 files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
-bot = Assistant(llm=llm_cfg,
-                system_message=system_instruction,
-                function_list=tools,
-                files=files)
 
-from qwen_agent.gui import WebUI
+def get_ai_message(users, messages):
+    users_json = json5.dumps(users, ensure_ascii=False, indent=0)
+    print("Getting AI message with users: ", users_json)
+    system_instruction = f'''
+    You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
+    When the user requests travel advice or suggestions:
+    - First you need to use the function find_shared_flight to find the cheapest flight for the users.
+    - Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 options.
+    - Then you need to propose the flights to the users using the create_trip function for each user.
+    - Get the users preferences and evaluate if the proposed flights are suitable.
+    - If the user likes the flight, you need to call the function create_trip to get the price of the flight.
+    Current date is {datetime.now().strftime('%Y-%m-%d')}.
+
+    User details:
+    ''' + users_json
+
+    bot = Assistant(llm=llm_cfg,
+                    system_message=system_instruction,
+                    function_list=tools,
+                    files=files)
+
+    response_plain_text = ""
+    for response in bot.run(messages=messages):
+        response_plain_text = typewriter_print(response, response_plain_text)
+    return response_plain_text
+
+# from qwen_agent.gui import WebUI
 
 # Modify the WebUI initialization to include chat history tracking and download button
 
 # Replace the WebUI initialization with CustomWebUI
-WebUI(bot).run()    
+# WebUI(bot).run()    

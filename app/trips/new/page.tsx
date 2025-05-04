@@ -33,19 +33,6 @@ const ONBOARDING_QUESTIONS = [
   }
 ];
 
-const AIRPORTS = [
-  { code: "JFK", name: "New York (JFK)" },
-  { code: "LAX", name: "Los Angeles (LAX)" },
-  { code: "ORD", name: "Chicago (ORD)" },
-  { code: "LHR", name: "London (LHR)" },
-  { code: "CDG", name: "Paris (CDG)" },
-  { code: "SFO", name: "San Francisco (SFO)" },
-  { code: "BCN", name: "Barcelona (BCN)" },
-  { code: "NRT", name: "Tokyo (NRT)" },
-  { code: "SYD", name: "Sydney (SYD)" },
-  { code: "DXB", name: "Dubai (DXB)" }
-];
-
 export default function NewTrip() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,8 +40,11 @@ export default function NewTrip() {
   const [userName, setUserName] = useState('');
   const [tripName, setTripName] = useState('');
   const [userAnswers, setUserAnswers] = useState<{ questionId: number; answer: string }[]>([]);
-  const [homeAirport, setHomeAirport] = useState('');
+  const [airportCode, setAirportCode] = useState('');
+  const [airportName, setAirportName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validatingAirport, setValidatingAirport] = useState(false);
+  const [airportError, setAirportError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // Check for tripName in URL params when component mounts
@@ -86,6 +76,48 @@ export default function NewTrip() {
       setStep('airport');
     } else {
       createTripAndRedirect(null);
+    }
+  };
+
+  const validateAirportCode = async () => {
+    if (!airportCode.trim() || airportCode.length !== 4) {
+      setAirportError('Please enter a valid 4-letter ICAO airport code');
+      return false;
+    }
+  
+    setValidatingAirport(true);
+    setAirportError(null);
+  
+    try {
+      const response = await fetch(`/api/validate-airport?code=${airportCode.toUpperCase()}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setAirportError('Airport code not found. Please check and try again.');
+        } else {
+          setAirportError(`Error validating airport: ${response.statusText}`);
+        }
+        setValidatingAirport(false);
+        return false;
+      }
+  
+      const data = await response.json();
+      
+      setAirportName(data.name ? `${data.name} (${data.city}, ${data.country})` : airportCode.toUpperCase());
+      setValidatingAirport(false);
+      return true;
+    } catch (err) {
+      setAirportError('Failed to validate airport code. Please try again.');
+      setValidatingAirport(false);
+      return false;
+    }
+  };
+
+  const handleAirportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const isValid = await validateAirportCode();
+    if (isValid) {
+      createTripAndRedirect(airportCode.toUpperCase());
     }
   };
 
@@ -216,38 +248,50 @@ export default function NewTrip() {
       
       {step === 'airport' && (
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
-          <h1 className="text-2xl font-bold text-indigo-700 mb-6">Select Your Home Airport</h1>
+          <h1 className="text-2xl font-bold text-indigo-700 mb-6">Enter Your Home Airport ICAO Code</h1>
           
-          <div className="mb-4">
-            <label htmlFor="airport" className="block text-sm font-medium text-gray-700 mb-2">
-              Home Airport
-            </label>
-            <select
-              id="airport"
-              value={homeAirport}
-              onChange={(e) => setHomeAirport(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          <form onSubmit={handleAirportSubmit}>
+            <div className="mb-4">
+              <label htmlFor="airportCode" className="block text-sm font-medium text-gray-700 mb-2">
+                ICAO Airport Code (e.g., KJFK, EGLL, LFPG)
+              </label>
+              <input
+                type="text"
+                id="airportCode"
+                value={airportCode}
+                onChange={(e) => {
+                  setAirportCode(e.target.value.toUpperCase());
+                  setAirportError(null);
+                  setAirportName('');
+                }}
+                className={`w-full p-3 border ${
+                  airportError ? 'border-red-500' : 'border-gray-300'
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase`}
+                placeholder="Enter 4-letter ICAO code"
+                maxLength={4}
+                autoComplete="off"
+                required
+              />
+              {airportError && (
+                <p className="mt-2 text-sm text-red-600">{airportError}</p>
+              )}
+              {airportName && !airportError && (
+                <p className="mt-2 text-sm text-green-600">Found: {airportName}</p>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={validatingAirport}
+              className={`w-full py-3 px-4 ${
+                validatingAirport 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              } font-medium rounded-lg transition duration-200`}
             >
-              <option value="">Select an airport</option>
-              {AIRPORTS.map(airport => (
-                <option key={airport.code} value={airport.code}>
-                  {airport.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <button
-            onClick={() => homeAirport && createTripAndRedirect(homeAirport)}
-            disabled={!homeAirport}
-            className={`w-full py-3 px-4 ${
-              homeAirport 
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            } font-medium rounded-lg transition duration-200`}
-          >
-            Create Trip
-          </button>
+              {validatingAirport ? 'Validating...' : 'Create Trip'}
+            </button>
+          </form>
         </div>
       )}
     </div>

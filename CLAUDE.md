@@ -68,6 +68,7 @@ trips, profiles, and messages.
 4. In development mode, the database is reset on each application startup unless the PROD environment variable is set
 5. You do not need to test the API changes
 6. Remmeber to use pydantic to validate request inputs
+7. IMPORTANT: strive to always directly return the object returned by the sqlalchemy query. It should be immediately convertible to json since it's a mapped class. 
 
 # Frontend Documentation
 
@@ -89,8 +90,8 @@ The application uses a mobile-first, responsive design approach and communicates
 | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `app/page.tsx`                | Homepage that lists the user's trips or redirects to trip creation if none exist                        |
 | `app/layout.tsx`              | Root layout component that wraps all pages with common elements                                         |
-| `app/lib/api.js`              | API client for making requests to the backend with methods for all API endpoints                        |
-| `app/lib/types.js`            | TypeScript type definitions for common data structures (User, Trip, Message, etc.)                      |
+| `app/lib/api.js`              | API client for making requests to the backend with methods for all API endpoints: getMyTrips(), createTrip(), joinTrip(), getTripInfo(), sendMessage(), and leaveTrip() |
+| `app/lib/types.js`            | TypeScript type definitions for common data structures (User, Trip, Message, QuestionAnswer, Profile)    |
 | `app/trips/new/page.tsx`      | Multi-step flow for creating a new trip (trip name, user name, preferences, home airport)               |
 | `app/trips/[tripId]/page.tsx` | Trip details page showing members, chat interface, and map visualization                                |
 | `app/trips/[tripId]/invite/page.tsx` | Invitation flow for joining an existing trip (similar to trip creation)                           |
@@ -124,6 +125,7 @@ The `app/lib/api.js` file provides methods for interacting with the backend API:
 - `joinTrip(data)`: Joins an existing trip
 - `getTripInfo(tripId)`: Gets information about a specific trip
 - `sendMessage(data)`: Sends a message in a trip
+- `leaveTrip(tripId)`: Leaves a trip the user is a member of
 
 Each method handles error states and includes credentials with requests to maintain cookie-based authentication.
 
@@ -153,3 +155,5 @@ Each method handles error states and includes credentials with requests to maint
 5. When adding new features, ensure they work on both mobile and desktop viewports
 
 - IMPORTANT: UPDATE CLAUDE.md ALWAYS WHEN CREATING, MOVING OR DELETING FILES
+- You don't need to run the code.
+- IMPORTANT: DO NOT COMMENT THE CODE UNLESS IT IS ABSOLUTELY UNCLEAR WHAT IT DOES

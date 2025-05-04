@@ -1,14 +1,22 @@
 """Main Flask application."""
 from flask import Flask, jsonify, request
+from flask.json.provider import DefaultJSONProvider
 from flask_cors import CORS
 from pydantic import ValidationError
 
 from backend.db import init_db, shutdown_session
 from backend.routes import blueprints
 
+class MyJsonEncoder(DefaultJSONProvider):
+    def default(self, obj):
+        if hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        return super().default(obj)
+
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    app.json = MyJsonEncoder(app)
     
     # Enable CORS
     CORS(app, supports_credentials=True)

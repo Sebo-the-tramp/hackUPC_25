@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getMyTrips, createTrip } from "./lib/api";
+import { getMe, createTrip } from "./lib/api";
 import TripLeaveButton from "../app/components/TripLeaveButton";
 
 
@@ -29,12 +29,12 @@ export default function Home() {
   useEffect(() => {
     async function fetchTrips() {
       try {
-        const response = await getMyTrips();
+        const response = await getMe();
 
         if (response.error) {
           if (
-            response.error.includes("You need to create a trip") ||
-            response.error.includes("No user_id cookie found")
+            response.error.includes("No user_id cookie found") ||
+            response.error.includes("User not found")
           ) {
             // We don't redirect automatically anymore, just show empty state
             setTrips([]);
