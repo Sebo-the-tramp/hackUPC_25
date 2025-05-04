@@ -1,7 +1,6 @@
 from agent.agent import make_bot
 from qwen_agent.gui import WebUI
 
-
 users = [
   {
     "name": "Karolina",
@@ -24,7 +23,7 @@ users = [
     "location": "Finland",
     "passport": ["Finland"],
     "budget": 1500.0,
-    "availability": "June 15 - August 15",
+    "availability": "June 15 - August 25",
     "visited": ["Sweden", "Norway"],
     "preferences": {
       "climate": "cool",
@@ -53,3 +52,6 @@ users = [
 ]
     
 WebUI(make_bot(users)).run()
+
+
+# python -m agent.run_webui.py
