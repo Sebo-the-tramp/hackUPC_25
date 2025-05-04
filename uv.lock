@@ -844,6 +844,7 @@ dependencies = [
     { name = "qwen-agent", extra = ["code-interpreter", "gui", "mcp", "rag"] },
     { name = "requests" },
     { name = "sqlalchemy" },
+    { name = "sqlalchemy-serializer" },
 ]
 
 [package.metadata]
@@ -857,6 +858,7 @@ requires-dist = [
     { name = "qwen-agent", extras = ["code-interpreter", "gui", "mcp", "rag"], specifier = ">=0.0.21" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "sqlalchemy", specifier = ">=2.0.40" },
+    { name = "sqlalchemy-serializer", specifier = ">=1.4.12" },
 ]
 
 [[package]]
@@ -2817,6 +2819,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/cb/f38c61f7f2fd4d10494c1c135ff6a6ddb63508d0b47bccccd93670637309/sqlalchemy-2.0.40-cp313-cp313-win_amd64.whl", hash = "sha256:641ee2e0834812d657862f3a7de95e0048bdcb6c55496f39c6fa3d435f6ac6ad", size = 2104564, upload-time = "2025-03-27T18:46:01.442Z" },
     { url = "https://files.pythonhosted.org/packages/d1/7c/5fc8e802e7506fe8b55a03a2e1dab156eae205c91bee46305755e086d2e2/sqlalchemy-2.0.40-py3-none-any.whl", hash = "sha256:32587e2e1e359276957e6fe5dad089758bc042a971a8a09ae8ecf7a8fe23d07a", size = 1903894, upload-time = "2025-03-27T18:40:43.796Z" },
 ]
+
+[[package]]
+name = "sqlalchemy-serializer"
+version = "1.4.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/c9/8fb4469d12306a4bd0ab787fd62dc265adb35a068f5f8f9c5c9f69a9a930/SQLAlchemy-serializer-1.4.12.tar.gz", hash = "sha256:5e1f83fc6d8a4f7618100c1b9a6af949498210756b974527ec3c8c1ec7e1300f", size = 16739, upload-time = "2024-04-01T14:51:51.261Z" }
 
 [[package]]
 name = "sse-starlette"

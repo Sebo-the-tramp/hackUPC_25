@@ -203,7 +203,7 @@ const InvitePage: React.FC<InvitePageProps> = ({ params }) => {
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-indigo-700 mb-2">Join Trip</h1>
           <p className="text-gray-600 mb-6">
-            <span className="font-semibold">{tripData.creator_name}</span> has invited you to join "{tripData.trip_name}"!
+            <span className="font-semibold">{tripData.trip.users[0]?.name || 'Someone'}</span> has invited you to join "{tripData.trip.name}"!
           </p>
           
           <form onSubmit={handleJoinTrip}>
