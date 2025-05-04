@@ -371,6 +371,8 @@ def triplet_overlap(lists,
     Returns [{'dest': d, 'interval': (start, end), 'triplet': combo}, …]
     """
     n = len(lists)
+    if n == 1:
+        return lists[0]
     buckets = defaultdict(lambda: [[] for _ in range(n)])
 
     # group by destination
