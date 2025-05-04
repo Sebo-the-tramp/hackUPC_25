@@ -3,7 +3,7 @@
 import threading
 from pydantic import BaseModel, ValidationError
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from backend.db import db_session
 from backend.models import User, Profile, Message, Trip
 from sqlalchemy import desc
@@ -60,10 +60,19 @@ def process_ai_response(trip_id, message_id):
                     "content": f"{user_name}: {msg.content}"
                 })
         
-        # Get AI response
-        ai_response = get_ai_message([p.to_dict(only=("user.name", "questions")) for p in profiles], formatted_messages)
+        # Get socketio instance - we're now running inside an app context thanks to the wrapper
+        from flask import current_app
+        socketio = current_app.extensions['socketio']
         
-        # Save the AI response to the database
+        # Get AI response with streaming enabled
+        ai_response = get_ai_message(
+            [p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles], 
+            formatted_messages,
+            socketio=socketio,
+            trip_id=trip_id
+        )
+        
+        # Save the final AI response to the database
         if ai_response:
             new_ai_message = Message(
                 content=ai_response,
@@ -75,6 +84,20 @@ def process_ai_response(trip_id, message_id):
             db_session.add(new_ai_message)
             db_session.commit()
             print(f"AI response added to trip {trip_id}")
+            
+            # Emit the complete message (will be used by clients that might have missed the streaming updates)
+            message_data = {
+                "message_id": new_ai_message.id,
+                "trip_id": trip_id,
+                "content": ai_response,
+                "sender": {
+                    "id": None,
+                    "name": "AI"
+                },
+                "created_at": new_ai_message.created_at.isoformat() if hasattr(new_ai_message.created_at, 'isoformat') else str(new_ai_message.created_at),
+                "is_ai": True
+            }
+            socketio.emit('new_message', message_data, room=f'trip_{trip_id}')
         else:
             print("AI response was empty or None")
             
@@ -129,10 +152,33 @@ def send_message():
         db_session.add(new_message)
         db_session.commit()
         
-        # Start a background thread to process the AI response
+        # Emit the message via WebSocket
+        message_data = {
+            "message_id": new_message.id,
+            "trip_id": validated_data.trip_id,
+            "content": validated_data.content,
+            "sender": {
+                "id": user_id,
+                "name": profile.user.name if profile.user else "Unknown"
+            },
+            "created_at": new_message.created_at.isoformat() if hasattr(new_message.created_at, 'isoformat') else str(new_message.created_at),
+            "is_ai": False
+        }
+        # Get socketio instance from current app
+        socketio = current_app.extensions['socketio']
+        socketio.emit('new_message', message_data, room=f'trip_{validated_data.trip_id}')
+        
+        # Get app context for background thread
+        app_context = current_app._get_current_object()
+        
+        # Start a background thread to process the AI response with app context
+        def run_with_app_context(app, trip_id, message_id):
+            with app.app_context():
+                process_ai_response(trip_id, message_id)
+        
         thread = threading.Thread(
-            target=process_ai_response,
-            args=(validated_data.trip_id, new_message.id)
+            target=run_with_app_context,
+            args=(app_context, validated_data.trip_id, new_message.id)
         )
         thread.daemon = True  # Thread will not prevent the application from exiting
         thread.start()

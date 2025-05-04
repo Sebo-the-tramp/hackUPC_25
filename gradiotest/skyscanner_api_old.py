@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer sh967490139224896692439644109194"  # Replace with your actual API key
+    "Authorization": "Bearer "  # Replace with your actual API key
 }
 
 def get_price_indicative(departure_iata, arrival_iata, start_date, end_date=None):

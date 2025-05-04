@@ -5,7 +5,7 @@ from qwen_agent.tools.base import BaseTool, register_tool
 from qwen_agent.utils.output_beautify import typewriter_print
 from datetime import datetime
 
-from skyscanner_api import create_flight_search, get_flight_from_airport, triplet_overlap, user_share_flight
+from skyscanner_api import create_flight_search, get_flight_from_airport, user_share_flight
 
 # Add chat history storage
 chat_history = []
@@ -174,8 +174,8 @@ class FindSharedFlight(BaseTool):
         print(raw_user_list)
         print(len(raw_user_list))
 
-        # # Get top 5 shared flight options
-        # triplet_overlap_options = user_share_flight(raw_user_list, users)
+        # Get top 5 shared flight options
+        triplet_overlap_options = user_share_flight(raw_user_list, users)
         
         # # Format the response
         # formatted_options = []
@@ -193,10 +193,7 @@ class FindSharedFlight(BaseTool):
         #         })
         #     formatted_options.append(option)
         
-        return json5.dumps({
-            "options": formatted_options
-        }, ensure_ascii=False)
-   
+        return triplet_overlap_options
 
 # Step 2: Configure the LLM you are using.
 llm_cfg = {
@@ -209,7 +206,24 @@ llm_cfg = {
     }
 }
 
-def get_ai_message(users, messages, socketio=None, trip_id=None):
+system_instruction = '''
+You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
+When the user requests travel advice or suggestions:
+- DO NOT ANSWER WHEN THE CONVERSATION IS TOO VAGUE and not clear.
+- First you need to use the function find_shared_flight to find the cheapest flight for ALL the users.
+- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 UNIQUE options.
+- Then ask the user for their preferences on the available options.
+- Given the answer, use the create_trip function FOR EACH USER TO GET THE FLIGHT PRICE.
+
+Current year is 2025.
+
+User details:
+''' + json5.dumps(users, ensure_ascii=False, indent=0)
+
+tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
+files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
+
+def get_ai_message(users, messages):
     users_json = json5.dumps(users, ensure_ascii=False, indent=0)
     print("Getting AI message with users: ", users_json)
     system_instruction = f'''
@@ -227,49 +241,17 @@ def get_ai_message(users, messages, socketio=None, trip_id=None):
 
     bot = Assistant(llm=llm_cfg,
                     system_message=system_instruction,
-                    function_list=['create_trip', 'find_shared_flight'],
-                    files=[])
+                    function_list=tools,
+                    files=files)
 
     response_plain_text = ""
-    
-    # Generate a unique message ID for streaming
-    from uuid import uuid4
-    message_id = str(uuid4())
-    
-    # If we have socketio, emit a start event
-    if socketio and trip_id:
-        socketio.emit('message_stream', {
-            'type': 'start',
-            'message_id': message_id,
-            'trip_id': trip_id
-        }, room=f'trip_{trip_id}')
-    
-    # Collect all characters from the response
     for response in bot.run(messages=messages):
-        # Get the new characters
-        old_text = response_plain_text
         response_plain_text = typewriter_print(response, response_plain_text)
-        new_text = response_plain_text[len(old_text):]
-        
-        # Emit streaming update if socketio is available
-        if socketio and trip_id and new_text:
-            socketio.emit('message_stream', {
-                'type': 'update',
-                'message_id': message_id,
-                'content': new_text,
-                'trip_id': trip_id
-            }, room=f'trip_{trip_id}')
-    
-    # Emit completion event if socketio is available
-    if socketio and trip_id:
-        socketio.emit('message_stream', {
-            'type': 'end',
-            'message_id': message_id,
-            'trip_id': trip_id,
-            'created_at': datetime.now().isoformat()
-        }, room=f'trip_{trip_id}')
-    
     return response_plain_text
 
-# from qwen_agent.gui import WebUI
-# WebUI(bot).run()    
+from qwen_agent.gui import WebUI
+
+# Modify the WebUI initialization to include chat history tracking and download button
+
+# Replace the WebUI initialization with CustomWebUI
+WebUI(bot).run()    
