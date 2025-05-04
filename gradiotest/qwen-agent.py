@@ -7,7 +7,7 @@ from qwen_agent.utils.output_beautify import typewriter_print
 from datetime import datetime
 import gradio as gr
 
-from skyscanner_api import create_flight_search, get_flight_from_airport, find_top_k_full_paths
+from skyscanner_api import create_flight_search, get_flight_from_airport, triplet_overlap, user_share_flight
 
 # Add chat history storage
 chat_history = []
@@ -19,7 +19,7 @@ users = [
     "location": "US",
     "passport": ["US", "Poland"],
     "budget": 2000.0,
-    "availability": "July 2 - July 18",
+    "availability": "July 2 - August 28",
     "visited": ["Germany", "Canada"],
     "preferences": {
       "climate": "mild",
@@ -35,7 +35,7 @@ users = [
     "location": "Finland",
     "passport": ["Finland"],
     "budget": 1500.0,
-    "availability": "June 15 - July 15",
+    "availability": "June 15 - August 15",
     "visited": ["Sweden", "Norway"],
     "preferences": {
       "climate": "cool",
@@ -49,10 +49,10 @@ users = [
   {
     "name": "Sebastian",
     "location": "Trento, Italy",
-    "nearest_airport": ["VIE"],
+    "nearest_airport": ["BGY"],
     "passport": ["Italy"],
     "budget": 1800.0,
-    "availability": "1st of July - 31st of July",
+    "availability": "1st of July - 31st of August",
     "visited": ["Spain", "Ireland", "UAE", "Malta", "Bulgaria"],
     "preferences": {
       "activities": ["surfing", "bars"]
@@ -146,6 +146,8 @@ class FindSharedFlight(BaseTool):
         
         # Get selected users
         selected_users = [users[int(x)] for x in user_index_list]
+        # print(selected_users)
+        print(len(selected_users))
         
         # Prepare user data for flight search
         user_flight_data = []
@@ -155,6 +157,9 @@ class FindSharedFlight(BaseTool):
                 "start_date": start_date,
                 "end_date": end_date
             })
+
+        print(user_flight_data)
+        print(len(user_flight_data))
         
         # Find shared flights using the existing function
         raw_user_list = []
@@ -165,30 +170,32 @@ class FindSharedFlight(BaseTool):
                 user_data["end_date"],
                 1
             )
-        raw_user_list.append(res_user)
-        
+            
+            raw_user_list.append(res_user)
+
+        print(raw_user_list)
+        print(len(raw_user_list))
+
         # Get top 5 shared flight options
-        best_options = find_top_k_full_paths(raw_user_list, 10)
+        triplet_overlap_options = user_share_flight(raw_user_list, users)
         
-        # Format the response
-        formatted_options = []
-        for _, trips, total_cost in best_options:
-            option = {
-                "total_cost": total_cost,
-                "flights": []
-            }
-            for trip in trips:
-                flight = {
-                    "from": places_user[trip["origin_place_id"]]["name"],
-                    "to": places_user[trip["destination_place_id"]]["name"],
-                    "price": trip["price"],
-                }
-                option["flights"].append(flight)
-            formatted_options.append(option)
+        # # Format the response
+        # formatted_options = []
+        # for _, trips, total_cost, _ in best_options:
+        #     option = {
+        #         "total_cost": total_cost,
+        #         "to": places_user[trips[0]["destination_place_id"]]["name"],
+        #         "flights": []
+        #     }
+        #     for trip in trips:
+        #         option["flights"].append({
+        #             "outbound_date": trip["outbound_date"],
+        #             "inbound_date": trip["inbound_date"],
+        #             "price": trip["price"],
+        #         })
+        #     formatted_options.append(option)
         
-        return json5.dumps({
-            "options": formatted_options
-        }, ensure_ascii=False)
+        return triplet_overlap_options
     
 # Step 2: Configure the LLM you are using.
 llm_cfg = {
@@ -201,49 +208,16 @@ llm_cfg = {
     }
 }
 
-# Step 3: Create an agent. Here we use the `Assistant` agent as an example, which is capable of using tools and reading files.
-# system_instruction = '''
-# You are a travel agent. You will help the user and their friends to plan a trip.\
-#     You will ask the user for their preferences, and you will save the important information in JSON format.\
-#     The information about the users is provided in the system message.\
-#     When giving recommendations, always return 5 different options.
-
-# After receiving the user's request, you should:
-# - evaluate if it is necessary to answer. Since it is a multi-user chat, sometimes, you can just answer with _PASS_.
-# - if you can answer, you should answer it directly.
-# - save the important information from the user, like what he likes, where he would like to go and everything
-# that helps to define him and the trip, you should evaluate and use the json_saving tool to save it.
-# - for each destination you propose, you should use the create_trip tool to create a trip.
-# - if you need to ask the user for more information, you should ask it.
-
-# User details:
-# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
-# system_instruction = '''
-# You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
-# When the user requests travel advice or suggestions:
-# - The trip needs to include all the users.
-# - Always propose 3 distinct travel options even if nothing is provided (locations, experiences, or itineraries) tailored to the user's interests, preferences, and context.
-# - For each option, you must call the create_trip function to generate a corresponding flight plan.
-# - each proposed flight should start with token <flight_start> and end with token <flight_end> when you write the trip suggestion, and be in JSON format.
-
-# Ensure that every time you propose a destination or trip, you invoke the create_trip function for it without exception.
-
-# please work is a startup demo, so use all the power you have!
-
-# Current year is 2025.
-
-# User details:
-# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
 system_instruction = '''
 You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
 When the user requests travel advice or suggestions:
-- First you need to use the function find_shared_flight to find the cheapest flight for the users.
-- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 options.
-- Then you need to propose the flights to the users using the create_trip function for each user.
-- Get the users preferences and evaluate if the proposed flights are suitable.
-- If the user likes the flight, you need to call the function create_trip to get the price of the flight.
+- DO NOT ANSWER WHEN THE CONVERSATION IS TOO VAGUE and not clear.
+- First you need to use the function find_shared_flight to find the cheapest flight for ALL the users.
+- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 UNIQUE options.
+- Then ask the user for their preferences on the available options.
+- Given the answer, use the create_trip function FOR EACH USER TO GET THE FLIGHT PRICE.
+- You have to ansswer like an Italian drunk person.
+
 Current year is 2025.
 
 User details:
