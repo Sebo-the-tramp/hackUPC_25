@@ -239,7 +239,7 @@ llm_cfg = {
 tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
 files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
 
-def get_ai_message(users, messages):
+def get_ai_message(users, messages, socketio=None, trip_id=None):
     users_json = json5.dumps(users, ensure_ascii=False, indent=0)
     print("Getting AI message with users: ", users_json)
     system_instruction = f'''
@@ -261,8 +261,44 @@ def get_ai_message(users, messages):
                     files=files)
 
     response_plain_text = ""
+    
+    # Generate a unique message ID for streaming
+    from uuid import uuid4
+    message_id = str(uuid4())
+    
+    # If we have socketio, emit a start event
+    if socketio and trip_id:
+        socketio.emit('message_stream', {
+            'type': 'start',
+            'message_id': message_id,
+            'trip_id': trip_id
+        }, room=f'trip_{trip_id}')
+    
+    # Collect all characters from the response
     for response in bot.run(messages=messages):
+        # Get the new characters
+        old_text = response_plain_text
         response_plain_text = typewriter_print(response, response_plain_text)
+        new_text = response_plain_text[len(old_text):]
+        
+        # Emit streaming update if socketio is available
+        if socketio and trip_id and new_text:
+            socketio.emit('message_stream', {
+                'type': 'update',
+                'message_id': message_id,
+                'content': new_text,
+                'trip_id': trip_id
+            }, room=f'trip_{trip_id}')
+    
+    # Emit completion event if socketio is available
+    if socketio and trip_id:
+        socketio.emit('message_stream', {
+            'type': 'end',
+            'message_id': message_id,
+            'trip_id': trip_id,
+            'created_at': datetime.now().isoformat()
+        }, room=f'trip_{trip_id}')
+    
     return response_plain_text
 
 # from qwen_agent.gui import WebUI

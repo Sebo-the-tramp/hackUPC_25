@@ -13,11 +13,11 @@ planning application that allows users to:
 1. Create trips
 2. Join existing trips
 3. View trip information
-4. Send messages within trips
+4. Send messages within trips (with real-time WebSocket updates and character-by-character AI response streaming)
 5. Track user profiles for each trip
 
 The system uses a cookie-based authentication mechanism to identify users and maintains relationships between users,
-trips, profiles, and messages.
+trips, profiles, and messages. Real-time chat functionality is implemented using Flask-SocketIO for WebSocket communication, including character-by-character streaming of AI responses.
 
 ## Backend Files
 
@@ -111,7 +111,7 @@ The application uses a mobile-first, responsive design approach and communicates
 
 ### Components
 
-- **ChatInterface**: Displays message history and allows sending new messages in a trip via the `/api/send-message` endpoint.
+- **ChatInterface**: Displays message history and allows sending new messages in a trip via the `/api/send-message` endpoint with real-time updates using WebSockets. Supports streaming AI responses with character-by-character display.
 - **TinderSwipe**: Provides a swipeable interface for answering preference questions with support for drag interactions and keyboard navigation.
 - **TripMap**: Uses Leaflet to display a map with markers for member home airports and calculates an optimal meeting point.
 - **UserCard**: Displays user information with preferences and home airport, includes functionality for inviting new members.
