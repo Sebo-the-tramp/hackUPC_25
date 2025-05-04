@@ -1,113 +1,119 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import TinderSwipe from '../../components/TinderSwipe';
-import { createTrip } from '../../lib/api';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import TinderSwipe from "../../components/TinderSwipe";
+import { createTrip } from "../../lib/api";
 
 const ONBOARDING_QUESTIONS = [
   {
     id: 1,
     text: "I prefer my trips to be...",
-    options: ["Carefully planned", "Spontaneous and flexible"]
+    options: ["Carefully planned", "Spontaneous and flexible"],
   },
   {
     id: 2,
     text: "I'd rather spend money on...",
-    options: ["Nice accommodations", "Experiences and activities"]
+    options: ["Nice accommodations", "Experiences and activities"],
   },
   {
     id: 3,
     text: "My ideal vacation includes...",
-    options: ["Relaxation", "Adventure"]
+    options: ["Relaxation", "Adventure"],
   },
   {
     id: 4,
     text: "When traveling, I prefer to eat...",
-    options: ["Familiar food", "Local cuisine"]
+    options: ["Familiar food", "Local cuisine"],
   },
   {
     id: 5,
     text: "What's your home airport?",
-    options: ["I'll select later", "I'll select now"]
-  }
+    options: ["I'll select later", "I'll select now"],
+  },
 ];
 
 export default function NewTrip() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<'initial' | 'name' | 'onboarding' | 'airport'>('initial');
-  const [userName, setUserName] = useState('');
-  const [tripName, setTripName] = useState('');
+  const [step, setStep] = useState<"initial" | "name" | "onboarding" | "airport">("initial");
+  const [userName, setUserName] = useState("");
+  const [tripName, setTripName] = useState("");
   const [userAnswers, setUserAnswers] = useState<{ questionId: number; answer: string }[]>([]);
-  const [airportCode, setAirportCode] = useState('');
-  const [airportName, setAirportName] = useState('');
+  const [airportCode, setAirportCode] = useState("");
+  const [airportName, setAirportName] = useState("");
   const [loading, setLoading] = useState(false);
   const [validatingAirport, setValidatingAirport] = useState(false);
   const [airportError, setAirportError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Check for tripName in URL params when component mounts
   useEffect(() => {
-    const tripNameFromURL = searchParams.get('tripName');
+    const tripNameFromURL = searchParams.get("tripName");
     if (tripNameFromURL) {
       setTripName(tripNameFromURL);
-      setStep('name'); // Skip to the name step if trip name is provided
+      setStep("name"); // Skip to the name step if trip name is provided
     }
   }, [searchParams]);
 
   const handleSetTripName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tripName.trim()) return;
-    setStep('name');
+    setStep("name");
   };
 
   const handleSetUserName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userName.trim()) return;
-    setStep('onboarding');
+    setStep("onboarding");
   };
 
   const handleOnboardingComplete = (answers: { questionId: number; answer: string }[]) => {
+    // Store the answers in state
     setUserAnswers(answers);
-    
-    const lastAnswer = answers.find(a => a.questionId === 5);
+
+    // Handle the last question about airports
+    const lastAnswer = answers.find((a) => a.questionId === 5);
     if (lastAnswer && lastAnswer.answer === "I'll select now") {
-      setStep('airport');
+      // If user wants to set an airport, move to that step
+      setStep("airport");
     } else {
-      createTripAndRedirect(null);
+      // Otherwise, we have all the answers we need now, so proceed directly
+      // We pass the answers directly to avoid state timing issues
+      const formattedQuestions = formatQuestionsForApi(answers);
+      createTripWithFormattedQuestions(formattedQuestions, null);
     }
   };
 
   const validateAirportCode = async () => {
     if (!airportCode.trim() || airportCode.length !== 4) {
-      setAirportError('Please enter a valid 4-letter ICAO airport code');
+      setAirportError("Please enter a valid 4-letter ICAO airport code");
       return false;
     }
-  
+
     setValidatingAirport(true);
     setAirportError(null);
-  
+
     try {
       const response = await fetch(`/api/validate-airport?code=${airportCode.toUpperCase()}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          setAirportError('Airport code not found. Please check and try again.');
+          setAirportError("Airport code not found. Please check and try again.");
         } else {
           setAirportError(`Error validating airport: ${response.statusText}`);
         }
         setValidatingAirport(false);
         return false;
       }
-  
+
       const data = await response.json();
-      
+
       setAirportName(data.name ? `${data.name} (${data.city}, ${data.country})` : airportCode.toUpperCase());
       setValidatingAirport(false);
       return true;
     } catch (err) {
-      setAirportError('Failed to validate airport code. Please try again.');
+      setAirportError("Failed to validate airport code. Please try again.");
       setValidatingAirport(false);
       return false;
     }
@@ -117,31 +123,43 @@ export default function NewTrip() {
     e.preventDefault();
     const isValid = await validateAirportCode();
     if (isValid) {
-      createTripAndRedirect(airportCode.toUpperCase());
+      // Format the questions from the stored answers
+      const formattedQuestions = formatQuestionsForApi(userAnswers);
+      // Create the trip with the formatted questions and the airport code
+      createTripWithFormattedQuestions(formattedQuestions, airportCode.toUpperCase());
     }
   };
 
-  const createTripAndRedirect = async (selectedAirport: string | null) => {
+  // Helper function to format answers for the API
+  const formatQuestionsForApi = (answers: { questionId: number; answer: string }[]) => {
+    return answers.map((answer) => ({
+      question: ONBOARDING_QUESTIONS.find((q) => q.id === answer.questionId)?.text || `Question ${answer.questionId}`,
+      answer: answer.answer,
+    }));
+  };
+
+  // Function to create a trip with already formatted questions
+  const createTripWithFormattedQuestions = async (formattedQuestions: Array<{question: string, answer: string}>, selectedAirport: string | null) => {
     setLoading(true);
     setError(null);
 
     try {
-      const formattedQuestions = userAnswers.map(answer => ({
-        question: ONBOARDING_QUESTIONS.find(q => q.id === answer.questionId)?.text || `Question ${answer.questionId}`,
-        answer: answer.answer
-      }));
-
+      // Add airport to questions if provided
+      const questionsToSend = [...formattedQuestions];
+      
       if (selectedAirport) {
-        formattedQuestions.push({
+        questionsToSend.push({
           question: "What's your home airport?",
-          answer: selectedAirport
+          answer: selectedAirport,
         });
       }
+      
+      console.log("Sending questions to API:", questionsToSend);
 
       const response = await createTrip({
         name: userName,
         trip_name: tripName,
-        questions: formattedQuestions
+        questions: questionsToSend,
       });
 
       if (response.error) {
@@ -152,9 +170,17 @@ export default function NewTrip() {
 
       router.push(`/trips/${response.trip_id}`);
     } catch (err) {
-      setError('Failed to create trip. Please try again.');
+      setError("Failed to create trip. Please try again.");
       setLoading(false);
     }
+  };
+  
+  // Original function now uses the helper functions
+  const createTripAndRedirect = async (selectedAirport: string | null) => {
+    // Format the questions based on the current state
+    const formattedQuestions = formatQuestionsForApi(userAnswers);
+    // Then create the trip with those formatted questions
+    await createTripWithFormattedQuestions(formattedQuestions, selectedAirport);
   };
 
   if (loading) {
@@ -176,10 +202,10 @@ export default function NewTrip() {
         </div>
       )}
 
-      {step === 'initial' && (
+      {step === "initial" && (
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-indigo-700 mb-6">Create a New Trip</h1>
-          
+
           <form onSubmit={handleSetTripName}>
             <div className="mb-4">
               <label htmlFor="tripName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -195,7 +221,7 @@ export default function NewTrip() {
                 required
               />
             </div>
-            
+
             <button
               type="submit"
               className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition duration-200"
@@ -206,10 +232,10 @@ export default function NewTrip() {
         </div>
       )}
 
-      {step === 'name' && (
+      {step === "name" && (
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-indigo-700 mb-6">Your Name</h1>
-          
+
           <form onSubmit={handleSetUserName}>
             <div className="mb-4">
               <label htmlFor="userName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -225,7 +251,7 @@ export default function NewTrip() {
                 required
               />
             </div>
-            
+
             <button
               type="submit"
               className="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition duration-200"
@@ -235,21 +261,17 @@ export default function NewTrip() {
           </form>
         </div>
       )}
-      
-      {step === 'onboarding' && (
+
+      {step === "onboarding" && (
         <div className="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden">
-          <TinderSwipe 
-            questions={ONBOARDING_QUESTIONS} 
-            onComplete={handleOnboardingComplete}
-            isNewTrip={true}
-          />
+          <TinderSwipe questions={ONBOARDING_QUESTIONS} onComplete={handleOnboardingComplete} isNewTrip={true} />
         </div>
       )}
-      
-      {step === 'airport' && (
+
+      {step === "airport" && (
         <div className="w-full max-w-md p-6 bg-white rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-indigo-700 mb-6">Enter Your Home Airport ICAO Code</h1>
-          
+
           <form onSubmit={handleAirportSubmit}>
             <div className="mb-4">
               <label htmlFor="airportCode" className="block text-sm font-medium text-gray-700 mb-2">
@@ -262,34 +284,30 @@ export default function NewTrip() {
                 onChange={(e) => {
                   setAirportCode(e.target.value.toUpperCase());
                   setAirportError(null);
-                  setAirportName('');
+                  setAirportName("");
                 }}
                 className={`w-full p-3 border ${
-                  airportError ? 'border-red-500' : 'border-gray-300'
+                  airportError ? "border-red-500" : "border-gray-300"
                 } rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase`}
                 placeholder="Enter 4-letter ICAO code"
                 maxLength={4}
                 autoComplete="off"
                 required
               />
-              {airportError && (
-                <p className="mt-2 text-sm text-red-600">{airportError}</p>
-              )}
-              {airportName && !airportError && (
-                <p className="mt-2 text-sm text-green-600">Found: {airportName}</p>
-              )}
+              {airportError && <p className="mt-2 text-sm text-red-600">{airportError}</p>}
+              {airportName && !airportError && <p className="mt-2 text-sm text-green-600">Found: {airportName}</p>}
             </div>
-            
+
             <button
               type="submit"
               disabled={validatingAirport}
               className={`w-full py-3 px-4 ${
-                validatingAirport 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                validatingAirport
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
               } font-medium rounded-lg transition duration-200`}
             >
-              {validatingAirport ? 'Validating...' : 'Create Trip'}
+              {validatingAirport ? "Validating..." : "Create Trip"}
             </button>
           </form>
         </div>

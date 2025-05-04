@@ -99,10 +99,11 @@ const validateAirportCode = async () => {
   };
 
   const selectAnswer = (answer: string) => {
+    // Add this answer to our list of answers
     const newAnswers = [...answers, { questionId: currentQuestion.id, answer }];
     setAnswers(newAnswers);
     
-    // Animate card off screen
+    // Animate card off screen based on the selected option
     const targetX = answer === currentQuestion.options[1] ? 1000 : -1000;
     
     // Don't animate for the airport question
@@ -110,13 +111,15 @@ const validateAirportCode = async () => {
       setOffset({ x: targetX, y: 0 });
     }
     
-    // Move to next question or complete
+    // Move to next question or complete the flow
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
+        // Move to the next question
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         setOffset({ x: 0, y: 0 });
       } else {
-        // All questions answered
+        // All questions answered - make sure to pass the COMPLETE list of answers
+        console.log("All questions answered:", newAnswers);
         onComplete(newAnswers);
       }
     }, 300);
