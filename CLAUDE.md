@@ -111,7 +111,7 @@ The application uses a mobile-first, responsive design approach and communicates
 
 ### Components
 
-- **ChatInterface**: Displays message history and allows sending new messages in a trip via the `/api/send-message` endpoint with real-time updates using WebSockets. Supports streaming AI responses with character-by-character display.
+- **ChatInterface**: Displays message history and allows sending new messages in a trip via the `/api/send-message` endpoint with real-time updates using WebSockets. Supports streaming AI responses with character-by-character display and renders AI messages as Markdown with support for rich formatting.
 - **TinderSwipe**: Provides a swipeable interface for answering preference questions with support for drag interactions and keyboard navigation.
 - **TripMap**: Uses Leaflet to display a map with markers for member home airports and calculates an optimal meeting point.
 - **UserCard**: Displays user information with preferences and home airport, includes functionality for inviting new members.

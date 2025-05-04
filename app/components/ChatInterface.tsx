@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, ChevronDown, ChevronRight } from "lucide-react";
 import { sendMessage } from "../lib/api";
 import { io, Socket } from "socket.io-client";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Message = {
   id: string;
@@ -197,7 +199,57 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
                   {message.senderName}
                 </p>
               )}
-              <p>{message.text}</p>
+              {message.sender === "llm" ? (
+                <div className="prose prose-sm max-w-none prose-p:text-gray-900 prose-li:text-gray-900 prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-headings:text-gray-900 prose-a:text-indigo-600 break-words">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Add custom rendering for think sections
+                      p: ({ node, children, ...props }) => {
+                        const textContent = node?.children?.[0]?.value || "";
+                        
+                        // Check if this is a think section opening tag
+                        if (textContent.trim().startsWith("<think>")) {
+                          const [_, ...rest] = children as React.ReactNode[];
+                          const thinkContent = rest.length > 0 ? rest : "Thinking...";
+                          
+                          // Use state to track if this section is expanded
+                          const [isExpanded, setIsExpanded] = useState(false);
+                          
+                          return (
+                            <div className="my-2 border border-gray-200 rounded-md">
+                              <button 
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-t-md"
+                              >
+                                <span>Thinking process</span>
+                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                              {isExpanded && (
+                                <div className="p-3 text-gray-600 text-sm bg-gray-50 rounded-b-md">
+                                  {thinkContent}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // Check if this is a think section closing tag
+                        if (textContent.trim() === "</think>") {
+                          return null;
+                        }
+                        
+                        // Regular paragraph
+                        return <p {...props}>{children}</p>;
+                      }
+                    }}
+                  >
+                    {message.text}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <p>{message.text}</p>
+              )}
               <p className={`text-xs mt-1 ${message.sender === "user" ? "text-indigo-200" : "text-gray-500"}`}>
                 {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </p>
@@ -205,6 +257,7 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
           </div>
         ))}
 
+        {/* Loading indicator for user message being sent */}
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-gray-100 text-gray-800 rounded-lg rounded-bl-none p-3">
@@ -222,6 +275,18 @@ const ChatInterface = ({ tripId, initialMessages = [] }: ChatInterfaceProps) => 
                   style={{ animationDelay: "300ms" }}
                 ></div>
               </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Loading spinner for when AI message is still generating but streaming has started */}
+        {messages.length > 0 && 
+         messages[messages.length - 1].sender === "llm" && 
+         messages[messages.length - 1].text.endsWith("...") && (
+          <div className="flex justify-start mt-1 ml-3">
+            <div className="flex items-center space-x-1">
+              <div className="h-3 w-3 border-t-2 border-r-2 border-indigo-500 rounded-full animate-spin"></div>
+              <span className="text-xs text-gray-500">AI is thinking...</span>
             </div>
           </div>
         )}

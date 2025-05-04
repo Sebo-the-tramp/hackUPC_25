@@ -190,6 +190,7 @@ class FindSharedFlight(BaseTool):
    
 model_server = os.environ.get('LLM_URL', "enter LLM_URL")
 print("model_server: ", model_server)
+    
 # Step 2: Configure the LLM you are using.
 llm_cfg = {
     # Use the model service provided by DashScope:
@@ -200,44 +201,6 @@ llm_cfg = {
         'top_k': 1
     }
 }
-
-# Step 3: Create an agent. Here we use the `Assistant` agent as an example, which is capable of using tools and reading files.
-# system_instruction = '''
-# You are a travel agent. You will help the user and their friends to plan a trip.\
-#     You will ask the user for their preferences, and you will save the important information in JSON format.\
-#     The information about the users is provided in the system message.\
-#     When giving recommendations, always return 5 different options.
-
-# After receiving the user's request, you should:
-# - evaluate if it is necessary to answer. Since it is a multi-user chat, sometimes, you can just answer with _PASS_.
-# - if you can answer, you should answer it directly.
-# - save the important information from the user, like what he likes, where he would like to go and everything
-# that helps to define him and the trip, you should evaluate and use the json_saving tool to save it.
-# - for each destination you propose, you should use the create_trip tool to create a trip.
-# - if you need to ask the user for more information, you should ask it.
-
-# User details:
-# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
-# system_instruction = '''
-# You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
-# When the user requests travel advice or suggestions:
-# - The trip needs to include all the users.
-# - Always propose 3 distinct travel options even if nothing is provided (locations, experiences, or itineraries) tailored to the user's interests, preferences, and context.
-# - For each option, you must call the create_trip function to generate a corresponding flight plan.
-# - each proposed flight should start with token <flight_start> and end with token <flight_end> when you write the trip suggestion, and be in JSON format.
-
-# Ensure that every time you propose a destination or trip, you invoke the create_trip function for it without exception.
-
-# please work is a startup demo, so use all the power you have!
-
-# Current year is 2025.
-
-# User details:
-# ''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
-tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
-files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
 
 def get_ai_message(users, messages, socketio=None, trip_id=None):
     users_json = json5.dumps(users, ensure_ascii=False, indent=0)
@@ -257,8 +220,8 @@ def get_ai_message(users, messages, socketio=None, trip_id=None):
 
     bot = Assistant(llm=llm_cfg,
                     system_message=system_instruction,
-                    function_list=tools,
-                    files=files)
+                    function_list=['create_trip', 'find_shared_flight'],
+                    files=[])
 
     response_plain_text = ""
     
@@ -302,8 +265,4 @@ def get_ai_message(users, messages, socketio=None, trip_id=None):
     return response_plain_text
 
 # from qwen_agent.gui import WebUI
-
-# Modify the WebUI initialization to include chat history tracking and download button
-
-# Replace the WebUI initialization with CustomWebUI
 # WebUI(bot).run()    
