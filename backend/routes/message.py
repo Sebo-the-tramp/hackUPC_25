@@ -9,7 +9,7 @@ from backend.models import User, Profile, Message, Trip
 from sqlalchemy import desc
 
 # Import the get_ai_message function from qwen_agent.py
-from backend.qwen_agent import get_ai_message
+from backend.ai import get_ai_message
 
 # Create Blueprint
 message_bp = Blueprint("message", __name__, url_prefix="/api")

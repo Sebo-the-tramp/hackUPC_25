@@ -1,11 +1,7 @@
-import os
-import json5
-from mcp_functions import *
+from agent.agent import make_bot
+from qwen_agent.gui import WebUI
 
-# Add chat history storage
-chat_history = []
 
-# defining the 4 people
 users = [
   {
     "name": "Karolina",
@@ -56,14 +52,4 @@ users = [
   }
 ]
     
-# Step 2: Configure the LLM you are using.
-
-
-
-
-from qwen_agent.gui import WebUI
-
-# Modify the WebUI initialization to include chat history tracking and download button
-
-# Replace the WebUI initialization with CustomWebUI
 WebUI(make_bot(users)).run()

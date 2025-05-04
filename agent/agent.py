@@ -1,66 +1,12 @@
 import os
 import json5
-from qwen_agent.agents import Assistant
 from qwen_agent.tools.base import BaseTool, register_tool
 from qwen_agent.utils.output_beautify import typewriter_print
 from datetime import datetime
+from qwen_agent.agents import Assistant
 
-from skyscanner_api import create_flight_search, get_flight_from_airport, user_share_flight
+from agent.skyscanner_api import create_flight_search, get_flight_from_airport, user_share_flight
 
-# Add chat history storage
-chat_history = []
-
-# defining the 4 people
-users = [
-  {
-    "name": "Karolina",
-    "location": "US",
-    "passport": ["US", "Poland"],
-    "budget": 2000.0,
-    "availability": "July 2 - August 28",
-    "visited": ["Germany", "Canada"],
-    "preferences": {
-      "climate": "mild",
-      "activities": ["beach", "city tours"]
-    },
-    "age": 31,
-    "language_spoken": ["English", "Polish"],
-    "dietary_restrictions": "Vegetarian",
-    "nearest_airport": ["JFK"]
-  },
-  {
-    "name": "Mikka",
-    "location": "Finland",
-    "passport": ["Finland"],
-    "budget": 1500.0,
-    "availability": "June 15 - August 15",
-    "visited": ["Sweden", "Norway"],
-    "preferences": {
-      "climate": "cool",
-      "activities": ["nature", "cycling", "surfing"]
-    },
-    "age": 26,
-    "language_spoken": ["Finnish", "English", "Swedish"],
-    "dietary_restrictions": "Lactose intolerant",
-    "nearest_airport": ["HEL"]
-  },
-  {
-    "name": "Sebastian",
-    "location": "Trento, Italy",
-    "nearest_airport": ["BGY"],
-    "passport": ["Italy"],
-    "budget": 1800.0,
-    "availability": "1st of July - 31st of August",
-    "visited": ["Spain", "Ireland", "UAE", "Malta", "Bulgaria"],
-    "preferences": {
-      "activities": ["surfing", "bars"]
-    },
-    "age": 25,
-    "language_spoken": ["Italian", "English", "German"],
-    "dietary_restrictions": "Vegetarian"
-  }
-]
-    
 @register_tool('create_trip')
 class QueryCost(BaseTool):
     description = 'Query the cost of a flight from the Skyscanner API using IATA codes.'
@@ -134,6 +80,11 @@ class FindSharedFlight(BaseTool):
         'type': 'string',
         'description': 'End date in YYYY-MM-DD format',
         'required': True
+    }, {
+        'name': 'airport_iata_to',
+        'type': 'string',
+        'description': 'The IATA code of the airport to fly to.',
+        'required': False
     }]
 
     def call(self, params: str, **kwargs) -> str:
@@ -141,7 +92,7 @@ class FindSharedFlight(BaseTool):
         user_index_list = params['user_index_list']
         start_date = params['start_date']
         end_date = params['end_date']
-        
+        airport_iata_to = params.get('airport_iata_to', None)
         # Get selected users
         selected_users = [users[int(x)] for x in user_index_list]
         # print(selected_users)
@@ -153,7 +104,8 @@ class FindSharedFlight(BaseTool):
             user_flight_data.append({
                 "departure_iata": user['nearest_airport'][0],
                 "start_date": start_date,
-                "end_date": end_date
+                "end_date": end_date,
+                "airport_iata_to": airport_iata_to
             })
 
         print(user_flight_data)
@@ -166,92 +118,51 @@ class FindSharedFlight(BaseTool):
                 user_data["departure_iata"],
                 user_data["start_date"],
                 user_data["end_date"],
-                1
+                airport_iata_to=user_data["airport_iata_to"],
+                adults=1
             )
             
             raw_user_list.append(res_user)
 
-        print(raw_user_list)
-        print(len(raw_user_list))
+        print("PROBLEM2")
 
         # Get top 5 shared flight options
         triplet_overlap_options = user_share_flight(raw_user_list, users)
         
-        # # Format the response
-        # formatted_options = []
-        # for _, trips, total_cost, _ in best_options:
-        #     option = {
-        #         "total_cost": total_cost,
-        #         "to": places_user[trips[0]["destination_place_id"]]["name"],
-        #         "flights": []
-        #     }
-        #     for trip in trips:
-        #         option["flights"].append({
-        #             "outbound_date": trip["outbound_date"],
-        #             "inbound_date": trip["inbound_date"],
-        #             "price": trip["price"],
-        #         })
-        #     formatted_options.append(option)
-        
         return triplet_overlap_options
 
-# Step 2: Configure the LLM you are using.
+model_server = os.environ.get('LLM_URL', "enter LLM_URL")
+print("model_server: ", model_server)
 llm_cfg = {
     # Use the model service provided by DashScope:
     'model': 'qwen3:32b',
-    'model_server': "10.127.30.123:11434/v1",
+    'model_server': model_server,
     'generate_cfg': {
         'temperature': 0,
         'top_k': 1
     }
 }
 
-system_instruction = '''
-You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
-When the user requests travel advice or suggestions:
-- DO NOT ANSWER WHEN THE CONVERSATION IS TOO VAGUE and not clear.
-- First you need to use the function find_shared_flight to find the cheapest flight for ALL the users.
-- Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 UNIQUE options.
-- Then ask the user for their preferences on the available options.
-- Given the answer, use the create_trip function FOR EACH USER TO GET THE FLIGHT PRICE.
-
-Current year is 2025.
-
-User details:
-''' + json5.dumps(users, ensure_ascii=False, indent=0)
-
-tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
-files = [] # ['./examples/resource/doc.pdf']  # Give the bot a PDF file to read.
-
-def get_ai_message(users, messages):
-    users_json = json5.dumps(users, ensure_ascii=False, indent=0)
-    print("Getting AI message with users: ", users_json)
-    system_instruction = f'''
+def make_bot(users):
+    system_instruction = '''
     You are a travel planner assistant helping the user and their friends organize trips based on the user information provided in the system message.
     When the user requests travel advice or suggestions:
-    - First you need to use the function find_shared_flight to find the cheapest flight for the users.
-    - Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 options.
-    - Then you need to propose the flights to the users using the create_trip function for each user.
-    - Get the users preferences and evaluate if the proposed flights are suitable.
-    - If the user likes the flight, you need to call the function create_trip to get the price of the flight.
-    Current date is {datetime.now().strftime('%Y-%m-%d')}.
+    - DO NOT ANSWER WHEN THE CONVERSATION IS TOO VAGUE and not clear.
+    - First you need to use the function find_shared_flight to find the cheapest flight for ALL the users.
+    - Then you need to rule out the flights that might not be liked by the users. Alway leave up to 5 UNIQUE options.
+    - Then ask the user for their preferences on the available options.
+    - Given the answer, use the create_trip function FOR EACH USER TO GET THE FLIGHT PRICE.
+
+    Current year is 2025.
 
     User details:
-    ''' + users_json
+    ''' + json5.dumps(users, ensure_ascii=False, indent=0)
+
+    tools = ['create_trip', 'find_shared_flight']  # `code_interpreter` is a built-in tool for executing code.
 
     bot = Assistant(llm=llm_cfg,
                     system_message=system_instruction,
                     function_list=tools,
-                    files=files)
-
-    response_plain_text = ""
-    for response in bot.run(messages=messages):
-        response_plain_text = typewriter_print(response, response_plain_text)
-    return response_plain_text
-
-from qwen_agent.gui import WebUI
-
-# Modify the WebUI initialization to include chat history tracking and download button
-
-# Replace the WebUI initialization with CustomWebUI
-WebUI(bot).run()    
+                    files=[])
+    
+    return bot
