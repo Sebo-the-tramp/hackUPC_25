@@ -63,10 +63,32 @@ def process_ai_response(trip_id, message_id):
         # Get socketio instance - we're now running inside an app context thanks to the wrapper
         from flask import current_app
         socketio = current_app.extensions['socketio']
-        #user_data["nearest_airport"] = []
+        
+        # Prepare user data for the AI model
+        user_data = [p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles]
+        
+        # Process user data to extract airport information
+        for user_profile in user_data:
+            # Initialize an empty list for airports
+            if 'nearest_airport' not in user_profile:
+                user_profile['nearest_airport'] = []
+                
+            # Try to find the airport answer from questions
+            if 'questions' in user_profile:
+                for question in user_profile.get('questions', []):
+                    # Check for airport-related questions
+                    if isinstance(question, dict) and 'question' in question:
+                        question_text = question.get('question', '').lower()
+                        if ('airport' in question_text or 'icao' in question_text) and 'answer' in question:
+                            # Get the airport answer
+                            airport_code = question.get('answer')
+                            if airport_code and len(airport_code.strip()) > 0:
+                                # Add to nearest airport if it's not empty
+                                user_profile['nearest_airport'].append(airport_code.strip())
+        
         # Get AI response with streaming enabled
         ai_response = get_ai_message(
-            [p.to_dict(only=("user.name", "questions", "questions.question", "questions.answer")) for p in profiles],
+            user_data,
             formatted_messages,
             socketio=socketio,
             trip_id=trip_id
